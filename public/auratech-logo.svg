@@ -1,0 +1,34 @@
+<svg viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F5E050" />
+      <stop offset="50%" style="stop-color:#E6D200" />
+      <stop offset="100%" style="stop-color:#D4AF37" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Logo Icon -->
+  <g transform="translate(0, 5)">
+    <!-- Background circle -->
+    <circle cx="25" cy="25" r="22" fill="#E6D200" stroke="#F5E050" stroke-width="2"/>
+    
+    <!-- Letter A -->
+    <path d="M 12 40 L 25 15 L 38 40 L 33 40 L 30 32 L 20 32 L 17 40 Z" fill="url(#logoGradient)"/>
+    <path d="M 22 28 L 28 28 L 25 22 Z" fill="#B8860B"/>
+    
+    <!-- Circuit elements -->
+    <circle cx="15" cy="20" r="1.5" fill="#F5E050"/>
+    <circle cx="35" cy="20" r="1.5" fill="#D4AF37"/>
+    <circle cx="8" cy="35" r="1" fill="#E6D200"/>
+    <circle cx="42" cy="35" r="1" fill="#F5E050"/>
+    
+    <!-- Connecting lines -->
+    <line x1="15" y1="20" x2="18" y2="23" stroke="#D4AF37" stroke-width="0.8"/>
+    <line x1="35" y1="20" x2="32" y2="23" stroke="#E6D200" stroke-width="0.8"/>
+  </g>
+  
+  <!-- AuraTech Text -->
+  <text x="60" y="35" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF">
+    AuraTech
+  </text>
+</svg>
