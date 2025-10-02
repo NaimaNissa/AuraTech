@@ -115,7 +115,7 @@ export default function HomePage({ onNavigate }) {
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: 'url(/Banner.png)',
+            backgroundImage: 'url(/new-banner.png)',
             backgroundSize: 'cover',
             backgroundPosition: 'center'
           }}
