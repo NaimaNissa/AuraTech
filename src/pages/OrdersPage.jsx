@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { getUserOrders, ORDER_STATUS } from '../lib/userService';
+import { getOrdersByEmail } from '../lib/orderService';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { Loader2 } from 'lucide-react';
 import { 
   Package, 
   Truck, 
@@ -24,138 +26,93 @@ export default function OrdersPage({ onNavigate }) {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Load user orders
   useEffect(() => {
     const loadOrders = async () => {
-      if (currentUser) {
-        try {
-          const userOrders = await getUserOrders(currentUser.uid);
-          setOrders(userOrders);
-        } catch (error) {
-          console.error('Error loading orders:', error);
-          // Fallback to mock data for demo
-          loadMockOrders();
-        }
+      if (!currentUser?.email) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        console.log('🔍 Loading orders for user:', currentUser.email);
+        
+        const userOrders = await getOrdersByEmail(currentUser.email);
+        console.log('📦 Raw orders from Firebase:', userOrders);
+        
+        // Transform Firebase orders to match UI format
+        const transformedOrders = userOrders.map(order => {
+          console.log('🔄 Transforming order:', order);
+          
+          // Parse address if it's a combined string
+          const parseAddress = (addressString) => {
+            if (!addressString) return { street: 'N/A', city: 'N/A', state: 'N/A', zipCode: 'N/A', country: 'N/A' };
+            
+            // Try to parse "street, city, state zipCode, country" format
+            const parts = addressString.split(',').map(part => part.trim());
+            if (parts.length >= 3) {
+              const street = parts[0] || 'N/A';
+              const city = parts[1] || 'N/A';
+              const stateZip = parts[2] ? parts[2].split(' ') : [];
+              const state = stateZip[0] || 'N/A';
+              const zipCode = stateZip[1] || 'N/A';
+              const country = parts[3] || 'N/A';
+              
+              return { street, city, state, zipCode, country };
+            }
+            
+            // Fallback: use the whole string as street
+            return { street: addressString, city: 'N/A', state: 'N/A', zipCode: 'N/A', country: 'N/A' };
+          };
+          
+          const parsedAddress = parseAddress(order.Address);
+          
+          return {
+            id: order.OrderID || order.id,
+            date: order.createdAt || new Date().toISOString(),
+            status: (order.Status || 'pending').toLowerCase(),
+            total: parseFloat(order.TotalPrice || 0),
+            shippingCost: parseFloat(order.ShippingCost || 0),
+            items: [{
+              id: order.id,
+              name: order.productname || 'Unknown Product',
+              image: order.productImg || order.ProductImage || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop',
+              price: parseFloat(order.Price || 0),
+              quantity: parseInt(order.Quantity || 1),
+              color: order.Color || order.ProductColor || 'Default'
+            }],
+            shippingAddress: {
+              name: order.FullName || 'N/A',
+              street: parsedAddress.street,
+              city: parsedAddress.city,
+              state: parsedAddress.state,
+              zipCode: parsedAddress.zipCode,
+              country: parsedAddress.country
+            },
+            trackingNumber: order.TrackingNumber || null,
+            estimatedDelivery: order.EstimatedDelivery || null,
+            actualDelivery: order.ActualDelivery || null,
+            cancellationReason: order.CancellationReason || null
+          };
+        });
+        
+        setOrders(transformedOrders);
+        console.log('✅ Orders loaded:', transformedOrders.length);
+      } catch (error) {
+        console.error('❌ Error loading orders:', error);
+        console.error('❌ Error details:', error.message, error.code);
+        setError(`Failed to load orders: ${error.message || 'Please try again.'}`);
+        setOrders([]); // Set empty array instead of mock data
+      } finally {
+        setLoading(false);
       }
     };
 
-    const loadMockOrders = () => {
-      const mockOrders = [
-      {
-        id: 'ORD-2024-001',
-        date: '2024-01-20',
-        status: 'delivered',
-        total: 299.99,
-        items: [
-          {
-            id: 1,
-            name: 'Wireless Bluetooth Headphones',
-            image: '/api/placeholder/80/80',
-            price: 149.99,
-            quantity: 1,
-            color: 'Black'
-          },
-          {
-            id: 2,
-            name: 'Smart Watch Series 8',
-            image: '/api/placeholder/80/80',
-            price: 149.99,
-            quantity: 1,
-            color: 'Silver'
-          }
-        ],
-        shippingAddress: {
-          name: 'John Doe',
-          street: '123 Main St',
-          city: 'New York',
-          state: 'NY',
-          zipCode: '10001',
-          country: 'USA'
-        },
-        trackingNumber: 'TRK123456789',
-        estimatedDelivery: '2024-01-25',
-        actualDelivery: '2024-01-24'
-      },
-      {
-        id: 'ORD-2024-002',
-        date: '2024-01-18',
-        status: 'shipped',
-        total: 199.99,
-        items: [
-          {
-            id: 3,
-            name: 'Gaming Mechanical Keyboard',
-            image: '/api/placeholder/80/80',
-            price: 199.99,
-            quantity: 1,
-            color: 'RGB'
-          }
-        ],
-        shippingAddress: {
-          name: 'John Doe',
-          street: '123 Main St',
-          city: 'New York',
-          state: 'NY',
-          zipCode: '10001',
-          country: 'USA'
-        },
-        trackingNumber: 'TRK987654321',
-        estimatedDelivery: '2024-01-28'
-      },
-      {
-        id: 'ORD-2024-003',
-        date: '2024-01-15',
-        status: 'processing',
-        total: 89.99,
-        items: [
-          {
-            id: 4,
-            name: 'USB-C Hub with 4K HDMI',
-            image: '/api/placeholder/80/80',
-            price: 89.99,
-            quantity: 1,
-            color: 'Space Gray'
-          }
-        ],
-        shippingAddress: {
-          name: 'John Doe',
-          street: '123 Main St',
-          city: 'New York',
-          state: 'NY',
-          zipCode: '10001',
-          country: 'USA'
-        },
-        estimatedDelivery: '2024-01-30'
-      },
-      {
-        id: 'ORD-2024-004',
-        date: '2024-01-10',
-        status: 'cancelled',
-        total: 159.99,
-        items: [
-          {
-            id: 5,
-            name: 'Wireless Charging Pad',
-            image: '/api/placeholder/80/80',
-            price: 159.99,
-            quantity: 1,
-            color: 'White'
-          }
-        ],
-        shippingAddress: {
-          name: 'John Doe',
-          street: '123 Main St',
-          city: 'New York',
-          state: 'NY',
-          zipCode: '10001',
-          country: 'USA'
-        },
-        cancellationReason: 'Customer requested cancellation'
-      }
-    ];
-    setOrders(mockOrders);
-    };
 
     loadOrders();
   }, [currentUser]);
@@ -212,9 +169,15 @@ export default function OrdersPage({ onNavigate }) {
             <Badge className={`${getStatusColor(order.status)} mb-2`}>
               {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
             </Badge>
-            <p className="text-lg font-semibold" style={{color: 'oklch(0.3 0.1 70)'}}>
-              ${order.total.toFixed(2)}
-            </p>
+            <div className="text-sm space-y-1" style={{color: 'oklch(0.5 0.05 70)'}}>
+              <p>Subtotal: ${(order.total - (order.shippingCost || 0)).toFixed(2)}</p>
+              {order.shippingCost > 0 && (
+                <p>Shipping: ${order.shippingCost.toFixed(2)}</p>
+              )}
+              <p className="text-lg font-semibold" style={{color: 'oklch(0.3 0.1 70)'}}>
+                Total: ${order.total.toFixed(2)}
+              </p>
+            </div>
           </div>
         </div>
       </CardHeader>
@@ -342,18 +305,146 @@ export default function OrdersPage({ onNavigate }) {
     { id: 'cancelled', label: 'Cancelled', count: orders.filter(o => o.status === 'cancelled').length }
   ];
 
+  // Not logged in state
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{backgroundColor: 'oklch(0.95 0.1 70)'}}>
+        <Card className="w-full max-w-md">
+          <CardContent className="text-center py-12">
+            <Package className="h-16 w-16 mx-auto mb-4" style={{color: 'oklch(0.6 0.1 70)'}} />
+            <h3 className="text-xl font-semibold mb-2" style={{color: 'oklch(0.3 0.1 70)'}}>
+              Please Sign In
+            </h3>
+            <p className="mb-6" style={{color: 'oklch(0.5 0.05 70)'}}>
+              You need to be signed in to view your order history.
+            </p>
+            <Button 
+              onClick={() => onNavigate('login')}
+              className="flex items-center gap-2 mx-auto"
+              style={{backgroundColor: 'oklch(0.7 0.15 70)', color: 'white'}}
+            >
+              Sign In
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{backgroundColor: 'oklch(0.95 0.1 70)'}}>
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading your orders...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen" style={{backgroundColor: 'oklch(0.95 0.1 70)'}}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2" style={{color: 'oklch(0.3 0.1 70)'}}>
-            My Orders
-          </h1>
-          <p className="text-lg" style={{color: 'oklch(0.5 0.05 70)'}}>
-            Track and manage your order history
-          </p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold mb-2" style={{color: 'oklch(0.3 0.1 70)'}}>
+                My Orders
+              </h1>
+              <p className="text-lg" style={{color: 'oklch(0.5 0.05 70)'}}>
+                Track and manage your order history
+              </p>
+            </div>
+            <Button
+              onClick={() => {
+                setLoading(true);
+                setError(null);
+                // Trigger reload by updating a dependency
+                const loadOrders = async () => {
+                  try {
+                    const userOrders = await getOrdersByEmail(currentUser.email);
+                    console.log('🔄 Refreshed orders:', userOrders.length);
+                    
+                    const transformedOrders = userOrders.map(order => {
+                      const parseAddress = (addressString) => {
+                        if (!addressString) return { street: 'N/A', city: 'N/A', state: 'N/A', zipCode: 'N/A', country: 'N/A' };
+                        const parts = addressString.split(',').map(part => part.trim());
+                        if (parts.length >= 3) {
+                          const street = parts[0] || 'N/A';
+                          const city = parts[1] || 'N/A';
+                          const stateZip = parts[2] ? parts[2].split(' ') : [];
+                          const state = stateZip[0] || 'N/A';
+                          const zipCode = stateZip[1] || 'N/A';
+                          const country = parts[3] || 'N/A';
+                          return { street, city, state, zipCode, country };
+                        }
+                        return { street: addressString, city: 'N/A', state: 'N/A', zipCode: 'N/A', country: 'N/A' };
+                      };
+                      
+                      const parsedAddress = parseAddress(order.Address);
+                      
+                      return {
+                        id: order.OrderID || order.id,
+                        date: order.createdAt || new Date().toISOString(),
+                        status: (order.Status || 'pending').toLowerCase(),
+                        total: parseFloat(order.TotalPrice || 0),
+                        shippingCost: parseFloat(order.ShippingCost || 0),
+                        items: [{
+                          id: order.id,
+                          name: order.productname || 'Unknown Product',
+                          image: order.productImg || order.ProductImage || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop',
+                          price: parseFloat(order.Price || 0),
+                          quantity: parseInt(order.Quantity || 1),
+                          color: order.Color || order.ProductColor || 'Default'
+                        }],
+                        shippingAddress: {
+                          name: order.FullName || 'N/A',
+                          street: parsedAddress.street,
+                          city: parsedAddress.city,
+                          state: parsedAddress.state,
+                          zipCode: parsedAddress.zipCode,
+                          country: parsedAddress.country
+                        },
+                        trackingNumber: order.TrackingNumber || null,
+                        estimatedDelivery: order.EstimatedDelivery || null,
+                        actualDelivery: order.ActualDelivery || null,
+                        cancellationReason: order.CancellationReason || null
+                      };
+                    });
+                    
+                    setOrders(transformedOrders);
+                  } catch (error) {
+                    console.error('❌ Error refreshing orders:', error);
+                    setError(`Failed to refresh orders: ${error.message || 'Please try again.'}`);
+                  } finally {
+                    setLoading(false);
+                  }
+                };
+                loadOrders();
+              }}
+              variant="outline"
+              size="sm"
+              disabled={loading}
+              className="flex items-center gap-2"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Package className="h-4 w-4" />
+              )}
+              Refresh
+            </Button>
+          </div>
         </div>
+
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         {/* Tabs */}
         <div className="mb-6">

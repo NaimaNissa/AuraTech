@@ -1,4 +1,5 @@
 import { createContext, useContext, useReducer } from 'react';
+import { createOrder } from '../lib/orderService';
 
 const CartContext = createContext();
 
@@ -79,6 +80,43 @@ export function CartProvider({ children }) {
     return state.items.reduce((total, item) => total + item.quantity, 0);
   };
 
+  const createOrderFromCart = async (customerInfo) => {
+    try {
+      const orders = [];
+      
+      // Create an order for each item in the cart
+      for (const item of state.items) {
+        const orderData = {
+          fullName: customerInfo.fullName,
+          email: customerInfo.email,
+          contact: customerInfo.contact,
+          address: customerInfo.address,
+          productName: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          totalPrice: item.price * item.quantity,
+          shippingCost: customerInfo.shippingCost || 0,
+          description: item.description || `${item.name} - ${item.brand || 'AuraTech'}`,
+          note: customerInfo.note || ''
+        };
+        
+        const order = await createOrder(orderData);
+        orders.push(order);
+      }
+      
+      // Clear cart after successful order creation
+      clearCart();
+      
+      return orders;
+    } catch (error) {
+      console.error('❌ Error creating order from cart:', error);
+      console.error('❌ Customer info:', customerInfo);
+      console.error('❌ Cart items:', state.items);
+      console.error('❌ Error details:', error.message, error.code);
+      throw error;
+    }
+  };
+
   const value = {
     items: state.items,
     addItem,
@@ -86,7 +124,8 @@ export function CartProvider({ children }) {
     updateQuantity,
     clearCart,
     getTotalPrice,
-    getTotalItems
+    getTotalItems,
+    createOrderFromCart
   };
 
   return (

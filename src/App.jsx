@@ -11,14 +11,30 @@ import CheckoutPage from './pages/CheckoutPage';
 import AuthPage from './pages/AuthPage';
 import ProfilePage from './pages/ProfilePage';
 import OrdersPage from './pages/OrdersPage';
+import ContactPage from './pages/ContactPage';
 import './App.css';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const handleNavigation = (page) => {
-    setCurrentPage(page);
+  const handleNavigation = (page, data = null) => {
+    if (page === 'about') {
+      // Navigate to home page and scroll to about section
+      setCurrentPage('home');
+      setTimeout(() => {
+        const aboutSection = document.getElementById('about-section');
+        if (aboutSection) {
+          aboutSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    } else if (page === 'product-details' && data) {
+      // Set the product ID for product details page
+      setSearchQuery(data);
+      setCurrentPage(page);
+    } else {
+      setCurrentPage(page);
+    }
   };
 
   const handleSearch = (query) => {
@@ -47,13 +63,8 @@ function App() {
             <CheckoutPage onNavigate={handleNavigation} />
           </ProtectedRoute>
         );
-      case 'about':
-        return <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold mb-4">About Us</h1>
-            <p className="text-gray-600">Learn more about AuraTech...</p>
-          </div>
-        </div>;
+      case 'contact':
+        return <ContactPage onNavigate={handleNavigation} />;
       case 'orders':
         return (
           <ProtectedRoute>

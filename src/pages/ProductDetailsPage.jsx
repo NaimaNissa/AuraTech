@@ -1,8 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { getProductById } from '@/lib/productService';
+import { getProductReviews, createReview, calculateProductRating, canCustomerReviewProduct } from '@/lib/reviewService';
 import { 
   ArrowLeft, 
   Star, 
@@ -14,81 +21,155 @@ import {
   Plus,
   Minus,
   ShoppingCart,
-  Check
+  Check,
+  Loader2
 } from 'lucide-react';
 
 export default function ProductDetailsPage({ productId, onNavigate }) {
-  const [selectedColor, setSelectedColor] = useState('black');
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedColor, setSelectedColor] = useState(null);
   const [selectedSize, setSelectedSize] = useState('M');
   const [quantity, setQuantity] = useState(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  
+  // Review system state
+  const [reviews, setReviews] = useState([]);
+  const [productRating, setProductRating] = useState({ averageRating: 0, totalReviews: 0 });
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
+  const [canReview, setCanReview] = useState({ canReview: false, reason: '' });
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  
+  const { addItem } = useCart();
+  const { currentUser } = useAuth();
 
-  // Sample product data - in real app, this would come from API
-  const product = {
-    id: productId || '1',
-    name: 'AuraTech Premium Wireless Headphones',
-    brand: 'AuraTech',
-    rating: 4.8,
-    reviewCount: 1247,
-    price: 299.99,
-    originalPrice: 399.99,
-    discount: 25,
-    description: 'Experience premium sound quality with our flagship wireless headphones. Featuring advanced noise cancellation, 30-hour battery life, and luxurious comfort.',
-    features: [
-      'Active Noise Cancellation',
-      '30-hour battery life',
-      'Quick charge (5 min = 3 hours)',
-      'Premium leather ear cups',
-      'Bluetooth 5.2 connectivity',
-      'Voice assistant integration'
-    ],
-    colors: {
-      black: {
-        name: 'Midnight Black',
-        images: [
-          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800',
-          'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=800',
-          'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=800'
-        ],
-        price: 299.99
-      },
-      gold: {
-        name: 'Champagne Gold',
-        images: [
-          'https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=800',
-          'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800',
-          'https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=800'
-        ],
-        price: 329.99
-      },
-      silver: {
-        name: 'Platinum Silver',
-        images: [
-          'https://images.unsplash.com/photo-1583394838336-acd977736f90?w=800',
-          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800',
-          'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=800'
-        ],
-        price: 319.99
-      },
-      navy: {
-        name: 'Deep Navy',
-        images: [
-          'https://images.unsplash.com/photo-1572569511254-d8f925fe2cbb?w=800',
-          'https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=800',
-          'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800'
-        ],
-        price: 309.99
+  // Fetch product data from Firebase
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!productId) {
+        setError('No product ID provided');
+        setLoading(false);
+        return;
       }
-    },
-    sizes: ['S', 'M', 'L', 'XL'],
-    inStock: true,
-    shipping: 'Free shipping on orders over $50',
-    warranty: '2-year manufacturer warranty',
-    returnPolicy: '30-day return policy'
+
+      try {
+        setLoading(true);
+        console.log('🔍 Fetching product details for ID:', productId);
+        const productData = await getProductById(productId);
+        console.log('✅ Product data loaded:', productData);
+        
+        setProduct(productData);
+        
+        // Set default color if colors are available
+        if (productData.colors && productData.colors.length > 0) {
+          setSelectedColor(productData.colors[0]);
+        }
+        
+        // Load reviews and rating
+        await loadProductReviews(productId);
+        
+        // Check if current user can review this product
+        if (currentUser?.email) {
+          const reviewEligibility = await canCustomerReviewProduct(currentUser.email, productId);
+          setCanReview(reviewEligibility);
+        }
+        
+        setError(null);
+      } catch (err) {
+        console.error('❌ Error fetching product:', err);
+        setError('Failed to load product details. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [productId, currentUser]);
+
+  // Load product reviews
+  const loadProductReviews = async (productId) => {
+    try {
+      const [reviewsData, ratingData] = await Promise.all([
+        getProductReviews(productId),
+        calculateProductRating(productId)
+      ]);
+      
+      setReviews(reviewsData);
+      setProductRating(ratingData);
+      console.log('✅ Reviews loaded:', reviewsData.length, 'Rating:', ratingData.averageRating);
+    } catch (error) {
+      console.error('❌ Error loading reviews:', error);
+    }
   };
 
-  const currentColorData = product.colors[selectedColor];
-  const currentPrice = currentColorData.price;
+  // Handle review submission
+  const handleSubmitReview = async () => {
+    if (!currentUser?.email || !product) return;
+    
+    try {
+      setIsSubmittingReview(true);
+      
+      const reviewData = {
+        productId: product.id,
+        productName: product.name,
+        customerName: currentUser.displayName || currentUser.email.split('@')[0],
+        customerEmail: currentUser.email,
+        rating: reviewForm.rating,
+        comment: reviewForm.comment
+      };
+      
+      await createReview(reviewData);
+      
+      // Reload reviews
+      await loadProductReviews(product.id);
+      
+      // Reset form and hide it
+      setReviewForm({ rating: 5, comment: '' });
+      setShowReviewForm(false);
+      
+      // Update review eligibility
+      const reviewEligibility = await canCustomerReviewProduct(currentUser.email, product.id);
+      setCanReview(reviewEligibility);
+      
+      console.log('✅ Review submitted successfully');
+    } catch (error) {
+      console.error('❌ Error submitting review:', error);
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
+  // Transform colors array to color object structure for UI compatibility
+  const getColorData = () => {
+    if (!product || !product.colors || product.colors.length === 0) {
+      return {
+        default: {
+          name: 'Default',
+          images: [product?.image || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop'],
+          price: product?.price || 0
+        }
+      };
+    }
+
+    const colorData = {};
+    product.colors.forEach((color, index) => {
+      const colorKey = color.toLowerCase().replace(/\s+/g, '');
+      colorData[colorKey] = {
+        name: color,
+        images: [product.image || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop'],
+        price: product.price
+      };
+    });
+    
+    return colorData;
+  };
+
+  const colorData = getColorData();
+  const currentColorKey = selectedColor ? selectedColor.toLowerCase().replace(/\s+/g, '') : Object.keys(colorData)[0];
+  const currentColorData = colorData[currentColorKey] || colorData[Object.keys(colorData)[0]];
+  const currentPrice = currentColorData?.price || product?.price || 0;
 
   const handleColorChange = (color) => {
     setSelectedColor(color);
@@ -96,18 +177,74 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
   };
 
   const handleQuantityChange = (change) => {
-    setQuantity(prev => Math.max(1, prev + change));
+    setQuantity(prev => {
+      const newQuantity = prev + change;
+      const maxQuantity = product?.quantity || 999;
+      return Math.max(1, Math.min(newQuantity, maxQuantity));
+    });
   };
 
   const handleAddToCart = () => {
-    // Add to cart logic here
-    console.log('Added to cart:', {
-      productId: product.id,
+    if (!product) return;
+    
+    const cartItem = {
+      id: product.id,
+      name: product.name,
+      price: currentPrice,
+      image: product.image,
+      brand: product.brand,
       color: selectedColor,
       size: selectedSize,
-      quantity
-    });
+      quantity: quantity
+    };
+    
+    addItem(cartItem);
+    console.log('✅ Added to cart:', cartItem);
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading product details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+          <Button onClick={() => onNavigate('products')} variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Products
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // No product found
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <p className="text-gray-600 mb-4">Product not found</p>
+          <Button onClick={() => onNavigate('products')} variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Products
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -218,67 +355,66 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
             </div>
 
             {/* Color Selection */}
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Color: {currentColorData.name}
-              </h3>
-              <div className="flex space-x-3">
-                {Object.entries(product.colors).map(([colorKey, colorData]) => (
-                  <button
-                    key={colorKey}
-                    onClick={() => handleColorChange(colorKey)}
-                    className={`relative p-1 rounded-full border-2 transition-all ${
-                      selectedColor === colorKey
-                        ? 'border-gray-900 ring-2 ring-gray-900 ring-offset-2'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <div
-                      className="w-8 h-8 rounded-full"
-                      style={{
-                        backgroundColor: colorKey === 'black' ? '#000000' :
-                                        colorKey === 'gold' ? '#D4AF37' :
-                                        colorKey === 'silver' ? '#C0C0C0' :
-                                        '#1E3A8A'
-                      }}
-                    />
-                    {selectedColor === colorKey && (
-                      <Check className="absolute -top-1 -right-1 h-4 w-4 text-white bg-gray-900 rounded-full" />
-                    )}
-                  </button>
-                ))}
+            {product.colors && product.colors.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Color: {selectedColor || 'Default'}
+                </h3>
+                <div className="flex space-x-3">
+                  {product.colors.map((color, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleColorChange(color)}
+                      className={`relative px-4 py-2 border rounded-lg font-medium transition-all ${
+                        selectedColor === color
+                          ? 'border-gray-900 bg-gray-900 text-white'
+                          : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      {color}
+                      {selectedColor === color && (
+                        <Check className="absolute -top-1 -right-1 h-4 w-4 text-white bg-gray-900 rounded-full" />
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Size Selection */}
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Size: {selectedSize}
-              </h3>
-              <div className="flex space-x-3">
-                {product.sizes.map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    className={`px-4 py-2 border rounded-lg font-medium transition-all ${
-                      selectedSize === size
-                        ? 'border-gray-900 bg-gray-900 text-white'
-                        : 'border-gray-200 text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
+            {/* Size Selection - Only show if sizes are available */}
+            {product.sizes && product.sizes.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Size: {selectedSize}
+                </h3>
+                <div className="flex space-x-3">
+                  {product.sizes.map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      className={`px-4 py-2 border rounded-lg font-medium transition-all ${
+                        selectedSize === size
+                          ? 'border-gray-900 bg-gray-900 text-white'
+                          : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Quantity */}
             <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-gray-900">Quantity</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Quantity {product.quantity > 0 && `(${product.quantity} available)`}
+              </h3>
               <div className="flex items-center space-x-3">
                 <button
                   onClick={() => handleQuantityChange(-1)}
-                  className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  disabled={quantity <= 1}
+                  className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Minus className="h-4 w-4" />
                 </button>
@@ -287,21 +423,29 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                 </span>
                 <button
                   onClick={() => handleQuantityChange(1)}
-                  className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50"
+                  disabled={quantity >= product.quantity}
+                  className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
               </div>
+              {!product.inStock && (
+                <p className="text-sm text-red-600">Out of stock</p>
+              )}
             </div>
 
             {/* Action Buttons */}
             <div className="space-y-3">
               <Button
                 onClick={handleAddToCart}
-                className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3 text-lg font-semibold"
+                disabled={!product.inStock}
+                className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ShoppingCart className="h-5 w-5 mr-2" />
-                Add to Cart - ${(currentPrice * quantity).toFixed(2)}
+                {product.inStock 
+                  ? `Add to Cart - $${(currentPrice * quantity).toFixed(2)}`
+                  : 'Out of Stock'
+                }
               </Button>
               
               <div className="flex space-x-3">
@@ -363,6 +507,177 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
               <p className="text-gray-700 leading-relaxed">
                 {product.description}
               </p>
+            </CardContent>
+          </Card>
+
+          {/* Reviews Section */}
+          <Card>
+            <CardContent className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  Customer Reviews
+                </h2>
+                {currentUser && canReview.canReview && (
+                  <Button
+                    onClick={() => setShowReviewForm(!showReviewForm)}
+                    variant="outline"
+                  >
+                    Write a Review
+                  </Button>
+                )}
+              </div>
+
+              {/* Rating Summary */}
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="flex items-center">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`h-5 w-5 ${
+                        star <= Math.round(productRating.averageRating)
+                          ? 'text-yellow-400 fill-current'
+                          : 'text-gray-300'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-lg font-semibold">
+                  {productRating.averageRating.toFixed(1)}
+                </span>
+                <span className="text-gray-600">
+                  ({productRating.totalReviews} review{productRating.totalReviews !== 1 ? 's' : ''})
+                </span>
+              </div>
+
+              {/* Review Form */}
+              {showReviewForm && (
+                <Card className="mb-6">
+                  <CardContent className="p-4">
+                    <h3 className="text-lg font-semibold mb-4">Write Your Review</h3>
+                    
+                    {/* Star Rating */}
+                    <div className="mb-4">
+                      <Label className="block mb-2">Rating</Label>
+                      <div className="flex items-center space-x-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => setReviewForm(prev => ({ ...prev, rating: star }))}
+                            className="p-1"
+                          >
+                            <Star
+                              className={`h-6 w-6 ${
+                                star <= reviewForm.rating
+                                  ? 'text-yellow-400 fill-current'
+                                  : 'text-gray-300'
+                              }`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Comment */}
+                    <div className="mb-4">
+                      <Label htmlFor="review-comment">Your Review</Label>
+                      <Textarea
+                        id="review-comment"
+                        value={reviewForm.comment}
+                        onChange={(e) => setReviewForm(prev => ({ ...prev, comment: e.target.value }))}
+                        placeholder="Share your experience with this product..."
+                        rows={4}
+                        className="mt-1"
+                      />
+                    </div>
+
+                    {/* Submit Buttons */}
+                    <div className="flex space-x-3">
+                      <Button
+                        onClick={handleSubmitReview}
+                        disabled={isSubmittingReview}
+                        className="flex-1"
+                      >
+                        {isSubmittingReview ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          'Submit Review'
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => setShowReviewForm(false)}
+                        variant="outline"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Review Eligibility Message */}
+              {currentUser && !canReview.canReview && (
+                <Alert className="mb-6">
+                  <AlertDescription>
+                    {canReview.reason}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Reviews List */}
+              <div className="space-y-4">
+                {reviews.length === 0 ? (
+                  <p className="text-gray-600 text-center py-8">
+                    No reviews yet. Be the first to review this product!
+                  </p>
+                ) : (
+                  reviews.map((review) => (
+                    <Card key={review.id} className="border-l-4 border-l-blue-500">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <div className="flex items-center space-x-2 mb-1">
+                              <span className="font-semibold">{review.customerName}</span>
+                              {review.verified && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Verified Purchase
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <div className="flex items-center">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <Star
+                                    key={star}
+                                    className={`h-4 w-4 ${
+                                      star <= review.rating
+                                        ? 'text-yellow-400 fill-current'
+                                        : 'text-gray-300'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              <span className="text-sm text-gray-600">
+                                {new Date(review.date).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        {review.comment && (
+                          <p className="text-gray-700 mt-2">{review.comment}</p>
+                        )}
+                        {review.helpful > 0 && (
+                          <p className="text-sm text-gray-500 mt-2">
+                            {review.helpful} people found this helpful
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>

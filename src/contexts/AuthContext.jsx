@@ -7,6 +7,7 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { sendLoginWelcomeEmailSimple } from '../lib/emailService';
 
 const AuthContext = createContext();
 
@@ -18,17 +19,59 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  function signup(email, password, displayName) {
-    return createUserWithEmailAndPassword(auth, email, password)
-      .then((result) => {
-        return updateProfile(result.user, {
-          displayName: displayName
-        });
+  async function signup(email, password, displayName) {
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Update profile with display name
+      await updateProfile(result.user, {
+        displayName: displayName
       });
+      
+      // Send welcome email after successful signup
+      try {
+        console.log('🎉 User signed up successfully, sending welcome email...');
+        await sendLoginWelcomeEmailSimple({
+          email: result.user.email,
+          displayName: displayName,
+          uid: result.user.uid
+        });
+        console.log('✅ Welcome email sent successfully');
+      } catch (emailError) {
+        console.error('⚠️ Failed to send welcome email:', emailError);
+        // Don't fail the signup if email fails
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Signup failed:', error);
+      throw error;
+    }
   }
 
-  function login(email, password) {
-    return signInWithEmailAndPassword(auth, email, password);
+  async function login(email, password) {
+    try {
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Send welcome email after successful login
+      try {
+        console.log('🎉 User logged in successfully, sending welcome email...');
+        await sendLoginWelcomeEmailSimple({
+          email: result.user.email,
+          displayName: result.user.displayName,
+          uid: result.user.uid
+        });
+        console.log('✅ Welcome email sent successfully');
+      } catch (emailError) {
+        console.error('⚠️ Failed to send welcome email:', emailError);
+        // Don't fail the login if email fails
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Login failed:', error);
+      throw error;
+    }
   }
 
   function logout() {

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { 
@@ -7,14 +8,20 @@ import {
   Watch, 
   Camera, 
   Gamepad2,
+  Tablet,
   Truck,
   Shield,
   CreditCard,
   ArrowRight,
-  Star
+  Star,
+  Loader2
 } from 'lucide-react';
+import { getCategoriesData } from '../data/products';
 
 export default function HomePage({ onNavigate }) {
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const features = [
     {
       icon: <Truck className="h-8 w-8" style={{color: '#D4AF37'}} />,
@@ -33,14 +40,54 @@ export default function HomePage({ onNavigate }) {
     }
   ];
 
-  const categories = [
-    { icon: <Smartphone className="h-12 w-12" />, name: "Smartphones", count: "150+ Products" },
-    { icon: <Laptop className="h-12 w-12" />, name: "Laptops", count: "80+ Products" },
-    { icon: <Headphones className="h-12 w-12" />, name: "Audio", count: "200+ Products" },
-    { icon: <Watch className="h-12 w-12" />, name: "Wearables", count: "120+ Products" },
-    { icon: <Camera className="h-12 w-12" />, name: "Cameras", count: "90+ Products" },
-    { icon: <Gamepad2 className="h-12 w-12" />, name: "Gaming", count: "300+ Products" }
-  ];
+  // Icon mapping for categories
+  const getCategoryIcon = (categoryName) => {
+    const iconMap = {
+      'smartphones': <Smartphone className="h-12 w-12" />,
+      'phone': <Smartphone className="h-12 w-12" />,
+      'laptops': <Laptop className="h-12 w-12" />,
+      'audio': <Headphones className="h-12 w-12" />,
+      'wearables': <Watch className="h-12 w-12" />,
+      'cameras': <Camera className="h-12 w-12" />,
+      'camera': <Camera className="h-12 w-12" />,
+      'tablets': <Tablet className="h-12 w-12" />,
+      'gaming': <Gamepad2 className="h-12 w-12" />
+    };
+    return iconMap[categoryName.toLowerCase()] || <Smartphone className="h-12 w-12" />;
+  };
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const firebaseCategories = getCategoriesData();
+        // Filter out "All Products" and map to display format
+        const displayCategories = firebaseCategories
+          .filter(cat => cat.id !== 'all')
+          .map(cat => ({
+            icon: getCategoryIcon(cat.id),
+            name: cat.name,
+            count: `${cat.count}+ Products`,
+            id: cat.id
+          }));
+        setCategories(displayCategories);
+      } catch (error) {
+        console.error('Error loading categories:', error);
+        // Fallback to default categories
+        setCategories([
+          { icon: <Smartphone className="h-12 w-12" />, name: "Smartphones", count: "150+ Products" },
+          { icon: <Tablet className="h-12 w-12" />, name: "Tablets", count: "80+ Products" },
+          { icon: <Camera className="h-12 w-12" />, name: "Cameras", count: "90+ Products" },
+          { icon: <Laptop className="h-12 w-12" />, name: "Laptops", count: "80+ Products" },
+          { icon: <Headphones className="h-12 w-12" />, name: "Audio", count: "200+ Products" },
+          { icon: <Gamepad2 className="h-12 w-12" />, name: "Gaming", count: "300+ Products" }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCategories();
+  }, []);
 
   const testimonials = [
     {
@@ -62,28 +109,48 @@ export default function HomePage({ onNavigate }) {
 
   return (
     <div className="min-h-screen">
-      {/* Hero Section */}
-      <section className="text-white relative overflow-hidden" style={{background: 'linear-gradient(135deg, rgba(105, 112, 2, 1) 0%, rgba(141, 126, 11, 1) 30%, rgba(192, 176, 2, 1) 70%, rgba(250, 226, 68, 1) 100%)'}}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold mb-6 animate-fade-in">
-              <span className="text-white" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.3)'}}>Aura</span><span className="text-white" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.3)'}}>Tech</span> - <span className="text-white" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.3)'}}>Elegant Innovation</span>
-            </h1>
-            <p className="text-xl md:text-2xl mb-8 max-w-3xl mx-auto leading-relaxed" style={{color: 'rgba(255, 255, 255, 0.95)', textShadow: '1px 1px 2px rgba(0,0,0,0.2)'}}>
-              Where sophisticated design meets technological excellence. Discover premium products 
-              crafted with precision, elegance, and timeless innovation.
-            </p>
-            <Button 
-              onClick={() => onNavigate('products')}
-              size="lg"
-              className="text-lg px-8 py-4 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 shadow-xl border border-white/20"
-              style={{background: 'rgba(255, 255, 255, 0.15)', color: '#FFFFFF', backdropFilter: 'blur(10px)'}}
-              onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.25)'}
-              onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.15)'}
-            >
-              Discover Excellence
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
+      {/* Hero Section with New Banner */}
+      <section className="text-white relative overflow-hidden min-h-screen -mt-16 pt-16">
+        {/* Banner Background */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: 'url(/Banner.png)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          }}
+        >
+          {/* Light overlay for better text readability */}
+          <div className="absolute inset-0 bg-black/20"></div>
+        </div>
+        
+        {/* Content - Right Aligned */}
+        <div className="relative z-10 flex items-center min-h-screen">
+          <div className="w-full px-4 sm:px-6 lg:px-8 py-20">
+            <div className="flex justify-end">
+              <div className="text-right max-w-md lg:max-w-lg xl:max-w-xl pr-8 sm:pr-12 lg:pr-16">
+                <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-4 animate-fade-in leading-tight">
+                  <span className="text-white" style={{textShadow: '3px 3px 6px rgba(0,0,0,0.8)'}}>AuraTech</span>
+                </h1>
+                <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-8 animate-fade-in leading-tight">
+                  <span className="text-white" style={{textShadow: '3px 3px 6px rgba(0,0,0,0.8)'}}>Expand Your Horizon</span>
+                </h2>
+                <p className="text-lg sm:text-xl md:text-2xl mb-8 leading-relaxed" style={{color: 'rgba(255, 255, 255, 0.95)', textShadow: '2px 2px 4px rgba(0,0,0,0.8)'}}>
+                  Discover a refined world of curated tech. Find and define your own aura.
+                </p>
+                <Button 
+                  onClick={() => onNavigate('products')}
+                  size="lg"
+                  className="text-lg px-8 py-4 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 shadow-xl border border-white/30"
+                  style={{background: 'rgba(255, 255, 255, 0.2)', color: '#FFFFFF', backdropFilter: 'blur(15px)'}}
+                  onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.3)'}
+                  onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
+                >
+                  Discover Excellence
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -120,27 +187,42 @@ export default function HomePage({ onNavigate }) {
           </div>
           
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-            {categories.map((category, index) => (
-              <Card 
-                key={index} 
-                className="p-6 text-center hover:shadow-lg transition-all duration-300 cursor-pointer group hover:scale-105"
-                onClick={() => onNavigate('products')}
-              >
-                <CardContent className="pt-6">
-                  <div className="flex justify-center mb-4 transition-all duration-300" style={{color: '#D4AF37'}}>
-                    {category.icon}
-                  </div>
-                  <h3 className="font-semibold mb-1">{category.name}</h3>
-                  <p className="text-sm text-gray-500">{category.count}</p>
-                </CardContent>
-              </Card>
-            ))}
+            {loading ? (
+              // Loading skeleton
+              Array.from({ length: 6 }).map((_, index) => (
+                <Card key={index} className="p-6 text-center">
+                  <CardContent className="pt-6">
+                    <div className="flex justify-center mb-4">
+                      <Loader2 className="h-12 w-12 animate-spin" style={{color: '#D4AF37'}} />
+                    </div>
+                    <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-3/4 mx-auto"></div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              categories.map((category, index) => (
+                <Card 
+                  key={index} 
+                  className="p-6 text-center hover:shadow-lg transition-all duration-300 cursor-pointer group hover:scale-105"
+                  onClick={() => onNavigate('products')}
+                >
+                  <CardContent className="pt-6">
+                    <div className="flex justify-center mb-4 transition-all duration-300" style={{color: '#D4AF37'}}>
+                      {category.icon}
+                    </div>
+                    <h3 className="font-semibold mb-1">{category.name}</h3>
+                    <p className="text-sm text-gray-500">{category.count}</p>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </div>
       </section>
 
       {/* About Section */}
-      <section className="py-16" style={{background: 'linear-gradient(180deg, #FFFFFF 0%, #FEFDF8 100%)'}}>
+      <section id="about-section" className="py-16" style={{background: 'linear-gradient(180deg, #FFFFFF 0%, #FEFDF8 100%)'}}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>

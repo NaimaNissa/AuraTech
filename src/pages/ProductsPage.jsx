@@ -19,12 +19,22 @@ import {
   Heart,
   Grid3X3,
   List,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Loader2
 } from 'lucide-react';
-import { products, categories, brands, priceRanges } from '../data/products';
+import { 
+  getProducts, 
+  getCategoriesData, 
+  getBrandsData, 
+  priceRanges, 
+  initializeProducts 
+} from '../data/products';
 
 export default function ProductsPage({ searchQuery = '', onNavigate }) {
-  const [filteredProducts, setFilteredProducts] = useState(products);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedBrand, setSelectedBrand] = useState('All Brands');
@@ -32,7 +42,31 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
   const [sortBy, setSortBy] = useState('name');
   const [viewMode, setViewMode] = useState('grid');
   const [showFilters, setShowFilters] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const { addItem } = useCart();
+
+  // Initialize products from Firebase
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const { products: firebaseProducts, categories: firebaseCategories, brands: firebaseBrands } = await initializeProducts();
+        setProducts(firebaseProducts);
+        setCategories(firebaseCategories);
+        setBrands(firebaseBrands);
+        setFilteredProducts(firebaseProducts);
+      } catch (err) {
+        setError('Failed to load products. Please try again later.');
+        console.error('Error loading products:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, []);
 
   useEffect(() => {
     setLocalSearchQuery(searchQuery);
@@ -52,7 +86,13 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
 
     // Filter by category
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(product => product.category === selectedCategory);
+      filtered = filtered.filter(product => {
+        // Handle both the mapped category and original Firebase category fields
+        return product.category === selectedCategory || 
+               (selectedCategory === 'smartphones' && (product.category === 'phone' || product.category === 'smartphones')) ||
+               (selectedCategory === 'cameras' && (product.category === 'camera' || product.category === 'cameras')) ||
+               (selectedCategory === 'tablets' && product.category === 'tablets');
+      });
     }
 
     // Filter by brand
@@ -86,7 +126,7 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
     });
 
     setFilteredProducts(filtered);
-  }, [localSearchQuery, selectedCategory, selectedBrand, selectedPriceRange, sortBy]);
+  }, [products, localSearchQuery, selectedCategory, selectedBrand, selectedPriceRange, sortBy]);
 
   const handleAddToCart = (product) => {
     addItem(product);
@@ -95,7 +135,12 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
   const ProductCard = ({ product }) => (
     <Card 
       className="group hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer"
-      onClick={() => onNavigate && onNavigate('product-details')}
+      onClick={() => {
+        if (onNavigate) {
+          // Navigate to product details with product ID
+          onNavigate('product-details', product.id);
+        }
+      }}
     >
       <div className="relative">
         <img
@@ -215,6 +260,30 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
       </CardContent>
     </Card>
   );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading products...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

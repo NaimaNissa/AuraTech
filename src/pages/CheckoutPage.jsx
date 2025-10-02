@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
+import { calculateCountryShippingCost, getCountryShippingOptions, validateInternationalAddress } from '../lib/countryShippingService';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -23,11 +24,17 @@ import {
 } from 'lucide-react';
 
 export default function CheckoutPage({ onNavigate }) {
-  const { items, getTotalPrice, getTotalItems, clearCart } = useCart();
+  const { items, getTotalPrice, getTotalItems, createOrderFromCart } = useCart();
   const { currentUser } = useAuth();
   const [step, setStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState('credit-card');
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [orderError, setOrderError] = useState(null);
+  const [shippingCost, setShippingCost] = useState(0);
+  const [shippingOptions, setShippingOptions] = useState([]);
+  const [selectedShipping, setSelectedShipping] = useState('standard');
+  const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);
   
   const [shippingInfo, setShippingInfo] = useState({
     firstName: currentUser?.displayName?.split(' ')[0] || '',
@@ -58,16 +65,97 @@ export default function CheckoutPage({ onNavigate }) {
 
   const handleShippingChange = (field, value) => {
     setShippingInfo(prev => ({ ...prev, [field]: value }));
+    
+    // Recalculate shipping when address-related fields change
+    if (['address', 'city', 'state', 'zipCode', 'country'].includes(field)) {
+      // Debounce the calculation to avoid too many API calls
+      setTimeout(() => {
+        calculateShippingForAddress();
+      }, 500);
+    }
+  };
+
+  // Calculate shipping when component mounts or when address is complete
+  useEffect(() => {
+    if (shippingInfo.address && shippingInfo.city && shippingInfo.state) {
+      calculateShippingForAddress();
+    }
+  }, [shippingInfo.address, shippingInfo.city, shippingInfo.state, shippingInfo.zipCode, shippingInfo.country]);
+
+  const calculateShippingForAddress = async () => {
+    const fullAddress = `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}, ${shippingInfo.country}`.trim();
+    
+    if (!shippingInfo.address || !shippingInfo.city) {
+      setShippingCost(0);
+      setShippingOptions([]);
+      return;
+    }
+
+    try {
+      setIsCalculatingShipping(true);
+      const orderTotal = getTotalPrice();
+      
+      console.log('🚚 Calculating shipping for:', fullAddress);
+      const options = await getCountryShippingOptions(fullAddress, orderTotal);
+      
+      setShippingOptions(options);
+      
+      // Set default shipping option
+      const defaultOption = options.find(opt => opt.id === 'standard') || options[0];
+      if (defaultOption) {
+        setSelectedShipping(defaultOption.id);
+        setShippingCost(defaultOption.cost);
+      }
+      
+      console.log('✅ Shipping options loaded:', options);
+    } catch (error) {
+      console.error('❌ Error calculating shipping:', error);
+      setShippingCost(5.99); // Fallback shipping cost
+    } finally {
+      setIsCalculatingShipping(false);
+    }
+  };
+
+  const handleShippingOptionChange = (optionId) => {
+    setSelectedShipping(optionId);
+    const selectedOption = shippingOptions.find(opt => opt.id === optionId);
+    if (selectedOption) {
+      setShippingCost(selectedOption.cost);
+    }
   };
 
   const handlePaymentChange = (field, value) => {
     setPaymentInfo(prev => ({ ...prev, [field]: value }));
   };
 
-  const handlePlaceOrder = () => {
-    // Simulate order processing
-    setOrderPlaced(true);
-    clearCart();
+  const handlePlaceOrder = async () => {
+    try {
+      setIsProcessing(true);
+      setOrderError(null);
+      
+      // Prepare customer information
+      const customerInfo = {
+        fullName: `${shippingInfo.firstName} ${shippingInfo.lastName}`,
+        email: shippingInfo.email,
+        contact: shippingInfo.phone,
+        address: `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}, ${shippingInfo.country}`,
+        shippingCost: shippingCost,
+        note: `Payment method: ${paymentMethod}. Shipping: ${selectedShipping}`
+      };
+      
+      // Create orders in Firebase
+      const orders = await createOrderFromCart(customerInfo);
+      
+      setOrderPlaced(true);
+    } catch (error) {
+      console.error('❌ Error placing order:', error);
+      console.error('❌ Error details:', error.message, error.code);
+      console.error('❌ Customer info:', customerInfo);
+      console.error('❌ Cart items:', items);
+      setOrderError(`Failed to place order: ${error.message || 'Please try again.'}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   if (items.length === 0 && !orderPlaced) {
@@ -249,6 +337,39 @@ export default function CheckoutPage({ onNavigate }) {
                     </div>
                   </div>
 
+                  {/* Shipping Options */}
+                  {shippingOptions.length > 0 && (
+                    <div className="space-y-3">
+                      <Label>Shipping Options</Label>
+                      {isCalculatingShipping ? (
+                        <div className="text-center py-4">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                          <p className="text-sm text-gray-600 mt-2">Calculating shipping...</p>
+                        </div>
+                      ) : (
+                        <RadioGroup value={selectedShipping} onValueChange={handleShippingOptionChange}>
+                          {shippingOptions.map((option) => (
+                            <div key={option.id} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50">
+                              <RadioGroupItem value={option.id} id={option.id} />
+                              <div className="flex-1">
+                                <Label htmlFor={option.id} className="flex justify-between items-center cursor-pointer">
+                                  <div>
+                                    <span className="font-medium">{option.name}</span>
+                                    <p className="text-sm text-gray-600">{option.description}</p>
+                                    <p className="text-xs text-gray-500">{option.deliveryDays} business days</p>
+                                  </div>
+                                  <span className="font-semibold">
+                                    {option.cost === 0 ? 'Free' : formatPrice(option.cost)}
+                                  </span>
+                                </Label>
+                              </div>
+                            </div>
+                          ))}
+                        </RadioGroup>
+                      )}
+                    </div>
+                  )}
+
                   <Button onClick={() => setStep(2)} className="w-full">
                     Continue to Payment
                   </Button>
@@ -426,13 +547,19 @@ export default function CheckoutPage({ onNavigate }) {
                     </p>
                   </div>
 
+                  {orderError && (
+                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                      <p className="text-red-600 text-sm">{orderError}</p>
+                    </div>
+                  )}
+                  
                   <div className="flex space-x-4">
-                    <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
+                    <Button variant="outline" onClick={() => setStep(2)} className="flex-1" disabled={isProcessing}>
                       Back to Payment
                     </Button>
-                    <Button onClick={handlePlaceOrder} className="flex-1">
+                    <Button onClick={handlePlaceOrder} className="flex-1" disabled={isProcessing}>
                       <Lock className="h-4 w-4 mr-2" />
-                      Place Order
+                      {isProcessing ? 'Processing...' : 'Place Order'}
                     </Button>
                   </div>
                 </CardContent>
@@ -455,19 +582,21 @@ export default function CheckoutPage({ onNavigate }) {
                   
                   <div className="flex justify-between">
                     <span>Shipping</span>
-                    <span className="text-green-600">Free</span>
+                    <span className={shippingCost === 0 ? "text-green-600" : ""}>
+                      {shippingCost === 0 ? 'Free' : formatPrice(shippingCost)}
+                    </span>
                   </div>
                   
                   <div className="flex justify-between">
                     <span>Tax</span>
-                    <span>{formatPrice(getTotalPrice() * 0.08)}</span>
+                    <span>{formatPrice((getTotalPrice() + shippingCost) * 0.08)}</span>
                   </div>
                   
                   <Separator />
                   
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Total</span>
-                    <span>{formatPrice(getTotalPrice() * 1.08)}</span>
+                    <span>{formatPrice((getTotalPrice() + shippingCost) * 1.08)}</span>
                   </div>
                 </div>
 

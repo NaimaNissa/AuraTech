@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { Button } from '@/components/ui/button';
@@ -23,8 +23,20 @@ import {
 export default function Navbar({ onNavigate, onSearch, currentPage }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isScrolled, setIsScrolled] = useState(false);
   const { currentUser, logout } = useAuth();
   const { getTotalItems } = useCart();
+
+  // Handle scroll effect for transparent navbar
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      setIsScrolled(scrollTop > 50);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -46,13 +58,32 @@ export default function Navbar({ onNavigate, onSearch, currentPage }) {
     { id: 'home', label: 'Home' },
     { id: 'products', label: 'Products' },
     { id: 'about', label: 'About' },
+    { id: 'contact', label: 'Contact' },
   ];
 
+  // Dynamic navbar styling based on page and scroll
+  const getNavbarStyle = () => {
+    if (currentPage === 'home') {
+      return {
+        backgroundColor: isScrolled ? 'rgba(121, 130, 1, 0.95)' : 'rgba(121, 130, 1, 0.1)',
+        backdropFilter: isScrolled ? 'blur(10px)' : 'blur(20px)',
+        borderBottom: isScrolled ? '1px solid rgba(250, 226, 68, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)',
+        transition: 'all 0.3s ease-in-out',
+        boxShadow: isScrolled ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)' : 'none'
+      };
+    }
+    return {
+      backgroundColor: 'rgb(121, 130, 1)',
+      borderBottom: '1px solid rgba(250, 226, 68, 0.2)',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+    };
+  };
+
   return (
-    <nav className="shadow-lg sticky top-0 z-50 border-b border-yellow-300/20 backdrop-blur-sm" style={{backgroundColor: 'rgb(121, 130, 1)'}}>
+    <nav className="sticky top-0 z-50 backdrop-blur-sm" style={getNavbarStyle()}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
+        <div className="flex items-center h-16">
+          {/* Logo - Left Side */}
           <div className="flex items-center">
             <button
               onClick={() => onNavigate('home')}
@@ -63,47 +94,47 @@ export default function Navbar({ onNavigate, onSearch, currentPage }) {
             </button>
           </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => onNavigate(item.id)}
-                className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300"
-                style={{
-                  color: currentPage === item.id ? '#FFFFFF' : '#FFFFFF',
-                  backgroundColor: currentPage === item.id ? 'rgba(255, 255, 255, 0.15)' : 'transparent'
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = currentPage === item.id ? 'rgba(255, 255, 255, 0.15)' : 'transparent';
-                }}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+          {/* Everything Else - Right Side */}
+          <div className="flex-1 flex justify-end items-center space-x-4">
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-6">
+              {navItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onNavigate(item.id)}
+                  className="px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                  style={{
+                    color: currentPage === item.id ? '#FFFFFF' : '#FFFFFF',
+                    backgroundColor: currentPage === item.id ? 'rgba(255, 255, 255, 0.15)' : 'transparent'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = currentPage === item.id ? 'rgba(255, 255, 255, 0.15)' : 'transparent';
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
 
-          {/* Search Bar */}
-          <div className="hidden md:flex flex-1 max-w-lg mx-8">
-            <form onSubmit={handleSearch} className="w-full">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  type="text"
-                  placeholder="Search products..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 w-full"
-                />
-              </div>
-            </form>
-          </div>
+            {/* Search Bar */}
+            <div className="hidden md:flex max-w-xs lg:max-w-sm">
+              <form onSubmit={handleSearch} className="w-full">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    type="text"
+                    placeholder="Search products..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-4 w-full"
+                  />
+                </div>
+              </form>
+            </div>
 
-          {/* Right Side Actions */}
-          <div className="flex items-center space-x-4">
             {/* Cart */}
             <button
               onClick={() => onNavigate('cart')}
@@ -159,7 +190,10 @@ export default function Navbar({ onNavigate, onSearch, currentPage }) {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden border-t border-yellow-300/20 backdrop-blur-sm" style={{backgroundColor: 'rgb(121, 130, 1)'}}>
+          <div className="md:hidden border-t backdrop-blur-sm" style={{
+            backgroundColor: currentPage === 'home' ? 'rgba(121, 130, 1, 0.95)' : 'rgb(121, 130, 1)',
+            borderTopColor: currentPage === 'home' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(250, 226, 68, 0.2)'
+          }}>
             <div className="px-2 pt-2 pb-3 space-y-1">
               {/* Mobile Search */}
               <form onSubmit={handleSearch} className="mb-3">
