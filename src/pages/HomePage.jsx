@@ -17,6 +17,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { getCategoriesData } from '../data/products';
+import bannerImage from '/Banner.png';
 
 export default function HomePage({ onNavigate }) {
   const [categories, setCategories] = useState([]);
@@ -115,9 +116,10 @@ export default function HomePage({ onNavigate }) {
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: 'url(/new-banner.png)',
+            backgroundImage: `url(${bannerImage})`,
             backgroundSize: 'cover',
-            backgroundPosition: 'center'
+            backgroundPosition: 'center',
+            backgroundColor: '#2D3748' // Fallback color
           }}
         >
           {/* Light overlay for better text readability */}
