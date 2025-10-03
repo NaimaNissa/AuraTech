@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 
-export default function SignUp({ onToggleMode }) {
+export default function SignUp({ onToggleMode, onNavigate }) {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -42,6 +42,10 @@ export default function SignUp({ onToggleMode }) {
       setError('');
       setLoading(true);
       await signup(formData.email, formData.password, formData.name);
+      // Navigate to home page after successful signup
+      if (onNavigate) {
+        onNavigate('home');
+      }
     } catch (error) {
       setError('Failed to create an account. Please try again.');
     }

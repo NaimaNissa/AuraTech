@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
+import { WishlistProvider } from './contexts/WishlistContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
@@ -12,16 +13,112 @@ import AuthPage from './pages/AuthPage';
 import ProfilePage from './pages/ProfilePage';
 import OrdersPage from './pages/OrdersPage';
 import ContactPage from './pages/ContactPage';
+import WishlistPage from './pages/WishlistPage';
 import './App.css';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
+  const [productId, setProductId] = useState('');
+
+  // Initialize page from URL on app load
+  useEffect(() => {
+    const path = window.location.pathname;
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    if (path === '/' || path === '') {
+      setCurrentPage('home');
+    } else if (path === '/products') {
+      setCurrentPage('products');
+      const search = urlParams.get('search');
+      if (search) {
+        setSearchQuery(search);
+      }
+    } else if (path.startsWith('/product/')) {
+      const id = path.split('/product/')[1];
+      setCurrentPage('product-details');
+      setProductId(id);
+    } else if (path === '/cart') {
+      setCurrentPage('cart');
+    } else if (path === '/checkout') {
+      setCurrentPage('checkout');
+    } else if (path === '/auth') {
+      setCurrentPage('auth');
+    } else if (path === '/profile') {
+      setCurrentPage('profile');
+    } else if (path === '/orders') {
+      setCurrentPage('orders');
+    } else if (path === '/contact') {
+      setCurrentPage('contact');
+    } else if (path === '/wishlist') {
+      setCurrentPage('wishlist');
+    }
+  }, []);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      if (path === '/' || path === '') {
+        setCurrentPage('home');
+        setProductId('');
+        setSearchQuery('');
+      } else if (path === '/products') {
+        setCurrentPage('products');
+        setProductId('');
+        const search = urlParams.get('search');
+        if (search) {
+          setSearchQuery(search);
+        } else {
+          setSearchQuery('');
+        }
+      } else if (path.startsWith('/product/')) {
+        const id = path.split('/product/')[1];
+        setCurrentPage('product-details');
+        setProductId(id);
+        setSearchQuery('');
+      } else if (path === '/cart') {
+        setCurrentPage('cart');
+        setProductId('');
+        setSearchQuery('');
+      } else if (path === '/checkout') {
+        setCurrentPage('checkout');
+        setProductId('');
+        setSearchQuery('');
+      } else if (path === '/auth') {
+        setCurrentPage('auth');
+        setProductId('');
+        setSearchQuery('');
+      } else if (path === '/profile') {
+        setCurrentPage('profile');
+        setProductId('');
+        setSearchQuery('');
+      } else if (path === '/orders') {
+        setCurrentPage('orders');
+        setProductId('');
+        setSearchQuery('');
+      } else if (path === '/contact') {
+        setCurrentPage('contact');
+        setProductId('');
+        setSearchQuery('');
+      } else if (path === '/wishlist') {
+        setCurrentPage('wishlist');
+        setProductId('');
+        setSearchQuery('');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const handleNavigation = (page, data = null) => {
     if (page === 'about') {
       // Navigate to home page and scroll to about section
       setCurrentPage('home');
+      window.history.pushState({}, '', '/');
       setTimeout(() => {
         const aboutSection = document.getElementById('about-section');
         if (aboutSection) {
@@ -30,10 +127,52 @@ function App() {
       }, 100);
     } else if (page === 'product-details' && data) {
       // Set the product ID for product details page
-      setSearchQuery(data);
+      setProductId(data);
       setCurrentPage(page);
+      window.history.pushState({}, '', `/product/${data}`);
     } else {
       setCurrentPage(page);
+      // Clear product ID when navigating away from product details
+      if (page !== 'product-details') {
+        setProductId('');
+      }
+      // Clear search query when navigating away from products
+      if (page !== 'products') {
+        setSearchQuery('');
+      }
+      
+      // Update URL based on page
+      switch (page) {
+        case 'home':
+          window.history.pushState({}, '', '/');
+          break;
+        case 'products':
+          window.history.pushState({}, '', '/products');
+          break;
+        case 'cart':
+          window.history.pushState({}, '', '/cart');
+          break;
+        case 'checkout':
+          window.history.pushState({}, '', '/checkout');
+          break;
+        case 'auth':
+          window.history.pushState({}, '', '/auth');
+          break;
+        case 'profile':
+          window.history.pushState({}, '', '/profile');
+          break;
+        case 'orders':
+          window.history.pushState({}, '', '/orders');
+          break;
+        case 'contact':
+          window.history.pushState({}, '', '/contact');
+          break;
+        case 'wishlist':
+          window.history.pushState({}, '', '/wishlist');
+          break;
+        default:
+          window.history.pushState({}, '', '/');
+      }
     }
   };
 
@@ -46,11 +185,11 @@ function App() {
       case 'home':
         return <HomePage onNavigate={handleNavigation} />;
       case 'auth':
-        return <AuthPage />;
+        return <AuthPage onNavigate={handleNavigation} />;
       case 'products':
         return <ProductsPage searchQuery={searchQuery} onNavigate={handleNavigation} />;
       case 'product-details':
-        return <ProductDetailsPage productId={searchQuery} onNavigate={handleNavigation} />;
+        return <ProductDetailsPage productId={productId} onNavigate={handleNavigation} />;
       case 'cart':
         return (
           <ProtectedRoute>
@@ -65,6 +204,12 @@ function App() {
         );
       case 'contact':
         return <ContactPage onNavigate={handleNavigation} />;
+      case 'wishlist':
+        return (
+          <ProtectedRoute>
+            <WishlistPage onNavigate={handleNavigation} />
+          </ProtectedRoute>
+        );
       case 'orders':
         return (
           <ProtectedRoute>
@@ -85,14 +230,16 @@ function App() {
   return (
     <AuthProvider>
       <CartProvider>
-        <div className="App">
-          <Navbar 
-            onNavigate={handleNavigation} 
-            onSearch={handleSearch}
-            currentPage={currentPage}
-          />
-          {renderPage()}
-        </div>
+        <WishlistProvider>
+          <div className="App">
+            <Navbar 
+              onNavigate={handleNavigation} 
+              onSearch={handleSearch}
+              currentPage={currentPage}
+            />
+            {renderPage()}
+          </div>
+        </WishlistProvider>
       </CartProvider>
     </AuthProvider>
   );

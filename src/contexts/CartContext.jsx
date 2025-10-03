@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer } from 'react';
 import { createOrder } from '../lib/orderService';
+import { useAuth } from './AuthContext';
 
 const CartContext = createContext();
 
@@ -55,9 +56,18 @@ const cartReducer = (state, action) => {
 
 export function CartProvider({ children }) {
   const [state, dispatch] = useReducer(cartReducer, { items: [] });
+  const { currentUser } = useAuth();
 
-  const addItem = (product) => {
+  const addItem = (product, onRequireAuth = null) => {
+    if (!currentUser) {
+      // If user is not authenticated, call the callback to show sign-in prompt
+      if (onRequireAuth) {
+        onRequireAuth();
+      }
+      return false;
+    }
     dispatch({ type: 'ADD_ITEM', payload: product });
+    return true;
   };
 
   const removeItem = (productId) => {

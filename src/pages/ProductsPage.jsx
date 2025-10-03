@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useCart } from '../contexts/CartContext';
+import { useAuth } from '../contexts/AuthContext';
+import SignInPrompt from '../components/SignInPrompt';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -44,7 +46,9 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const { addItem } = useCart();
+  const { currentUser } = useAuth();
 
   // Initialize products from Firebase
   useEffect(() => {
@@ -129,7 +133,18 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
   }, [products, localSearchQuery, selectedCategory, selectedBrand, selectedPriceRange, sortBy]);
 
   const handleAddToCart = (product) => {
-    addItem(product);
+    const success = addItem(product, () => {
+      setShowSignInPrompt(true);
+    });
+    
+    if (success) {
+      console.log('✅ Added to cart:', product);
+    }
+  };
+
+  const handleBuyNow = (product) => {
+    // Navigate to product details page first
+    onNavigate('product-details', product.id);
   };
 
   const ProductCard = ({ product }) => (
@@ -187,14 +202,25 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
           <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>
         </div>
 
-        <Button 
-          onClick={() => handleAddToCart(product)}
-          disabled={!product.inStock}
-          className="w-full"
-        >
-          <ShoppingCart className="h-4 w-4 mr-2" />
-          {product.inStock ? 'Add to Cart' : 'Out of Stock'}
-        </Button>
+        <div className="space-y-2">
+          <Button 
+            onClick={() => handleAddToCart(product)}
+            disabled={!product.inStock}
+            className="w-full"
+          >
+            <ShoppingCart className="h-4 w-4 mr-2" />
+            {product.inStock ? 'Add to Cart' : 'Out of Stock'}
+          </Button>
+          
+          <Button 
+            onClick={() => handleBuyNow(product)}
+            disabled={!product.inStock}
+            className="w-full bg-green-600 hover:bg-green-700"
+            size="sm"
+          >
+            Buy Now
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
@@ -247,13 +273,30 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
                 )}
               </div>
               
-              <Button 
-                onClick={() => handleAddToCart(product)}
-                disabled={!product.inStock}
-              >
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                {product.inStock ? 'Add to Cart' : 'Out of Stock'}
-              </Button>
+              <div className="flex space-x-2">
+                <Button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddToCart(product);
+                  }}
+                  disabled={!product.inStock}
+                  className="flex-1"
+                >
+                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  {product.inStock ? 'Add to Cart' : 'Out of Stock'}
+                </Button>
+                
+                <Button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleBuyNow(product);
+                  }}
+                  disabled={!product.inStock}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Buy Now
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -427,6 +470,14 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
           </div>
         )}
       </div>
+      
+      {/* Sign In Prompt */}
+      <SignInPrompt
+        isOpen={showSignInPrompt}
+        onClose={() => setShowSignInPrompt(false)}
+        onNavigate={onNavigate}
+        action="cart"
+      />
     </div>
   );
 }

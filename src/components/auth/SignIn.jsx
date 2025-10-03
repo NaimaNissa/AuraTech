@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 
-export default function SignIn({ onToggleMode }) {
+export default function SignIn({ onToggleMode, onNavigate }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,6 +22,10 @@ export default function SignIn({ onToggleMode }) {
       setError('');
       setLoading(true);
       await login(email, password);
+      // Navigate to home page after successful login
+      if (onNavigate) {
+        onNavigate('home');
+      }
     } catch (error) {
       setError('Failed to sign in. Please check your credentials.');
     }

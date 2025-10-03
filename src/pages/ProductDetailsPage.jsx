@@ -8,6 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWishlist } from '@/contexts/WishlistContext';
+import SignInPrompt from '@/components/SignInPrompt';
+import ImageZoomModal from '@/components/ImageZoomModal';
 import { getProductById } from '@/lib/productService';
 import { getProductReviews, createReview, calculateProductRating, canCustomerReviewProduct } from '@/lib/reviewService';
 import { 
@@ -44,6 +47,11 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
   
   const { addItem } = useCart();
   const { currentUser } = useAuth();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
+  const [signInAction, setSignInAction] = useState('cart');
+  const [showZoomModal, setShowZoomModal] = useState(false);
+  const [zoomImageIndex, setZoomImageIndex] = useState(0);
 
   // Fetch product data from Firebase
   useEffect(() => {
@@ -120,9 +128,20 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
         comment: reviewForm.comment
       };
       
-      await createReview(reviewData);
+      const newReview = await createReview(reviewData);
       
-      // Reload reviews
+      // Add the new review to the local state immediately
+      setReviews(prevReviews => [newReview, ...prevReviews]);
+      
+      // Update the product rating immediately
+      const newTotalReviews = reviews.length + 1;
+      const newAverageRating = ((productRating.averageRating * reviews.length) + reviewForm.rating) / newTotalReviews;
+      setProductRating({
+        averageRating: newAverageRating,
+        totalReviews: newTotalReviews
+      });
+      
+      // Reload reviews to ensure consistency (in case of any issues)
       await loadProductReviews(product.id);
       
       // Reset form and hide it
@@ -176,6 +195,27 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
     setSelectedImageIndex(0); // Reset to first image when color changes
   };
 
+  const getCurrentImages = () => {
+    if (!product) return [];
+    
+    // Get images for the selected color
+    const colorData = getColorData();
+    const currentColorKey = selectedColor ? selectedColor.toLowerCase().replace(/\s+/g, '') : Object.keys(colorData)[0];
+    const currentColorData = colorData[currentColorKey];
+    
+    if (currentColorData && currentColorData.images) {
+      return currentColorData.images;
+    }
+    
+    // Fallback to product images
+    return product.images || [product.image];
+  };
+
+  const handleImageClick = (index) => {
+    setZoomImageIndex(index);
+    setShowZoomModal(true);
+  };
+
   const handleQuantityChange = (change) => {
     setQuantity(prev => {
       const newQuantity = prev + change;
@@ -198,8 +238,91 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
       quantity: quantity
     };
     
-    addItem(cartItem);
-    console.log('✅ Added to cart:', cartItem);
+    const success = addItem(cartItem, () => {
+      setSignInAction('cart');
+      setShowSignInPrompt(true);
+    });
+    
+    if (success) {
+      console.log('✅ Added to cart:', cartItem);
+    }
+  };
+
+  const handleWishlistToggle = () => {
+    if (!product) return;
+    
+    if (!currentUser) {
+      setSignInAction('wishlist');
+      setShowSignInPrompt(true);
+      return;
+    }
+
+    const wishlistItem = {
+      id: product.id,
+      name: product.name,
+      price: currentPrice,
+      image: product.image,
+      brand: product.brand
+    };
+
+    if (isInWishlist(product.id)) {
+      removeFromWishlist(product.id);
+    } else {
+      addToWishlist(wishlistItem);
+    }
+  };
+
+  const handleShare = () => {
+    if (!product) return;
+    
+    const shareData = {
+      title: product.name,
+      text: `Check out this ${product.name} from AuraTech!`,
+      url: window.location.href
+    };
+
+    if (navigator.share) {
+      navigator.share(shareData).catch(console.error);
+    } else {
+      // Fallback: copy to clipboard
+      navigator.clipboard.writeText(window.location.href).then(() => {
+        alert('Product link copied to clipboard!');
+      }).catch(() => {
+        // Final fallback: show URL
+        prompt('Copy this link to share:', window.location.href);
+      });
+    }
+  };
+
+  const handleBuyNow = () => {
+    if (!product) return;
+    
+    if (!currentUser) {
+      setSignInAction('cart');
+      setShowSignInPrompt(true);
+      return;
+    }
+
+    const cartItem = {
+      id: product.id,
+      name: product.name,
+      price: currentPrice,
+      image: product.image,
+      brand: product.brand,
+      color: selectedColor,
+      size: selectedSize,
+      quantity: quantity
+    };
+    
+    const success = addItem(cartItem, () => {
+      setSignInAction('cart');
+      setShowSignInPrompt(true);
+    });
+    
+    if (success) {
+      // Navigate directly to cart
+      onNavigate('cart');
+    }
   };
 
   // Loading state
@@ -269,17 +392,20 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
           {/* Product Images */}
           <div className="space-y-4">
             {/* Main Image */}
-            <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
+            <div 
+              className="aspect-square rounded-lg overflow-hidden bg-gray-100 cursor-zoom-in"
+              onClick={() => handleImageClick(selectedImageIndex)}
+            >
               <img
-                src={currentColorData.images[selectedImageIndex]}
-                alt={`${product.name} - ${currentColorData.name}`}
-                className="w-full h-full object-cover"
+                src={getCurrentImages()[selectedImageIndex]}
+                alt={`${product.name} - ${selectedColor || 'default'}`}
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
               />
             </div>
 
             {/* Thumbnail Images */}
-            <div className="grid grid-cols-3 gap-4">
-              {currentColorData.images.map((image, index) => (
+            <div className="grid grid-cols-5 gap-2">
+              {getCurrentImages().map((image, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedImageIndex(index)}
@@ -296,6 +422,11 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                   />
                 </button>
               ))}
+            </div>
+            
+            {/* Image Counter */}
+            <div className="text-center text-sm text-gray-600">
+              {selectedImageIndex + 1} of {getCurrentImages().length} images
             </div>
           </div>
 
@@ -436,29 +567,43 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
 
             {/* Action Buttons */}
             <div className="space-y-3">
-              <Button
-                onClick={handleAddToCart}
-                disabled={!product.inStock}
-                className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ShoppingCart className="h-5 w-5 mr-2" />
-                {product.inStock 
-                  ? `Add to Cart - $${(currentPrice * quantity).toFixed(2)}`
-                  : 'Out of Stock'
-                }
-              </Button>
+              <div className="space-y-3">
+                <Button
+                  onClick={handleAddToCart}
+                  disabled={!product.inStock}
+                  className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ShoppingCart className="h-5 w-5 mr-2" />
+                  {product.inStock 
+                    ? `Add to Cart - $${(currentPrice * quantity).toFixed(2)}`
+                    : 'Out of Stock'
+                  }
+                </Button>
+                
+                <Button
+                  onClick={handleBuyNow}
+                  disabled={!product.inStock}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Buy Now - ${(currentPrice * quantity).toFixed(2)}
+                </Button>
+              </div>
               
               <div className="flex space-x-3">
                 <Button
                   variant="outline"
-                  className="flex-1 border-gray-200 hover:bg-gray-50"
+                  className={`flex-1 border-gray-200 hover:bg-gray-50 ${
+                    isInWishlist(product.id) ? 'bg-red-50 border-red-200 text-red-600' : ''
+                  }`}
+                  onClick={handleWishlistToggle}
                 >
-                  <Heart className="h-4 w-4 mr-2" />
-                  Wishlist
+                  <Heart className={`h-4 w-4 mr-2 ${isInWishlist(product.id) ? 'fill-current' : ''}`} />
+                  {isInWishlist(product.id) ? 'In Wishlist' : 'Wishlist'}
                 </Button>
                 <Button
                   variant="outline"
                   className="flex-1 border-gray-200 hover:bg-gray-50"
+                  onClick={handleShare}
                 >
                   <Share2 className="h-4 w-4 mr-2" />
                   Share
@@ -682,6 +827,23 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
           </Card>
         </div>
       </div>
+      
+      {/* Sign In Prompt */}
+      <SignInPrompt
+        isOpen={showSignInPrompt}
+        onClose={() => setShowSignInPrompt(false)}
+        onNavigate={onNavigate}
+        action={signInAction}
+      />
+      
+      {/* Image Zoom Modal */}
+      <ImageZoomModal
+        isOpen={showZoomModal}
+        onClose={() => setShowZoomModal(false)}
+        images={getCurrentImages()}
+        currentIndex={zoomImageIndex}
+        onIndexChange={setZoomImageIndex}
+      />
     </div>
   );
 }

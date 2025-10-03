@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
+import { useWishlist } from '../contexts/WishlistContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +12,8 @@ import {
   Menu, 
   X, 
   LogOut,
-  Package
+  Package,
+  Heart
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -26,6 +28,7 @@ export default function Navbar({ onNavigate, onSearch, currentPage }) {
   const [isScrolled, setIsScrolled] = useState(false);
   const { currentUser, logout } = useAuth();
   const { getTotalItems } = useCart();
+  const { getWishlistCount } = useWishlist();
 
   // Handle scroll effect for transparent navbar
   useEffect(() => {
@@ -45,6 +48,13 @@ export default function Navbar({ onNavigate, onSearch, currentPage }) {
       onNavigate('products');
     }
   };
+
+  // Clear search when navigating to different pages
+  useEffect(() => {
+    if (currentPage !== 'products') {
+      setSearchQuery('');
+    }
+  }, [currentPage]);
 
   const handleLogout = async () => {
     try {
@@ -134,6 +144,21 @@ export default function Navbar({ onNavigate, onSearch, currentPage }) {
                 </div>
               </form>
             </div>
+
+            {/* Wishlist */}
+            {currentUser && (
+              <button
+                onClick={() => onNavigate('wishlist')}
+                className="relative p-2 transition-all duration-300 hover:scale-105" style={{color: '#FFFFFF'}}
+              >
+                <Heart className="h-6 w-6" />
+                {getWishlistCount() > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center text-xs">
+                    {getWishlistCount()}
+                  </Badge>
+                )}
+              </button>
+            )}
 
             {/* Cart */}
             <button

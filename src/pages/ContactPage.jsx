@@ -5,13 +5,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { sendContactEmail } from '@/lib/emailService';
 import { 
   Mail, 
   Phone, 
-  MapPin, 
   Send, 
   CheckCircle,
-  ArrowLeft 
+  ArrowLeft,
+  Globe
 } from 'lucide-react';
 
 export default function ContactPage({ onNavigate }) {
@@ -38,25 +39,20 @@ export default function ContactPage({ onNavigate }) {
     setError('');
 
     try {
-      // Create mailto link with form data
-      const subject = encodeURIComponent(formData.subject || 'Contact from AuraTech Website');
-      const body = encodeURIComponent(
-        `Name: ${formData.name}\n` +
-        `Email: ${formData.email}\n` +
-        `Subject: ${formData.subject}\n\n` +
-        `Message:\n${formData.message}`
-      );
-      
-      const mailtoLink = `mailto:auratechs30@gmail.com?subject=${subject}&body=${body}`;
-      
-      // Open email client
-      window.location.href = mailtoLink;
+      // Send email using the email service
+      await sendContactEmail({
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject || 'Contact from AuraTech Website',
+        message: formData.message
+      });
       
       // Show success message
       setIsSubmitted(true);
       setFormData({ name: '', email: '', subject: '', message: '' });
       
     } catch (err) {
+      console.error('Contact form error:', err);
       setError('Failed to send message. Please try again or contact us directly at auratechs30@gmail.com');
     } finally {
       setIsSubmitting(false);
@@ -148,22 +144,13 @@ export default function ContactPage({ onNavigate }) {
                 </div>
 
                 <div className="flex items-start space-x-4">
-                  <MapPin className="h-6 w-6 text-blue-600 mt-1" />
+                  <Globe className="h-6 w-6 text-blue-600 mt-1" />
                   <div>
-                    <h3 className="font-semibold text-gray-900">Address</h3>
+                    <h3 className="font-semibold text-gray-900">Service Area</h3>
                     <p className="text-gray-600">
-                      Global Tech Hub<br />
-                      Worldwide Delivery
+                      Worldwide Shipping Available<br />
+                      Free shipping on orders over $50
                     </p>
-                  </div>
-                </div>
-
-                <div className="pt-6 border-t">
-                  <h3 className="font-semibold text-gray-900 mb-2">Business Hours</h3>
-                  <div className="space-y-1 text-sm text-gray-600">
-                    <p>Monday - Friday: 9:00 AM - 6:00 PM</p>
-                    <p>Saturday: 10:00 AM - 4:00 PM</p>
-                    <p>Sunday: Closed</p>
                   </div>
                 </div>
               </CardContent>
