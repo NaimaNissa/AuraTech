@@ -23,7 +23,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 
-export default function CheckoutPage({ onNavigate }) {
+export default function CheckoutPage({ onNavigate, shippingData }) {
   const { items, getTotalPrice, getTotalItems, createOrderFromCart } = useCart();
   const { currentUser } = useAuth();
   const [step, setStep] = useState(1);
@@ -31,7 +31,8 @@ export default function CheckoutPage({ onNavigate }) {
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderError, setOrderError] = useState(null);
-  const [shippingCost, setShippingCost] = useState(0);
+  const [shippingCost, setShippingCost] = useState(shippingData?.shippingCost || 0);
+  const [shippingCountry, setShippingCountry] = useState(shippingData?.shippingCountry || 'United States');
   const [shippingOptions, setShippingOptions] = useState([]);
   const [selectedShipping, setSelectedShipping] = useState('standard');
   const [isCalculatingShipping, setIsCalculatingShipping] = useState(false);

@@ -21,12 +21,12 @@ export const createReview = async (reviewData) => {
     const reviewsRef = collection(db, 'Feedback');
     
     const review = {
-      productId: reviewData.productId,
-      productName: reviewData.productName,
+      product: reviewData.productId, // Store product ID as string to match your structure
+      Stars: reviewData.rating.toString(), // Store as string to match dashboard structure
+      Feedback: reviewData.comment || '', // Store as string to match dashboard structure
       customerName: reviewData.customerName,
       customerEmail: reviewData.customerEmail,
-      Stars: reviewData.rating.toString(), // Store as string to match dashboard structure
-      Feedback: reviewData.comment || '',
+      productName: reviewData.productName,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       verified: false, // Can be updated by admin
@@ -35,6 +35,7 @@ export const createReview = async (reviewData) => {
     
     const docRef = await addDoc(reviewsRef, review);
     console.log('✅ Review created successfully:', docRef.id);
+    console.log('📝 Review data saved:', review);
     
     return { id: docRef.id, ...review };
   } catch (error) {
@@ -48,10 +49,15 @@ export const getProductReviews = async (productId) => {
   try {
     console.log('🔍 Fetching reviews for product:', productId);
     
+    if (!productId) {
+      console.warn('⚠️ No product ID provided for review fetch');
+      return [];
+    }
+    
     const reviewsRef = collection(db, 'Feedback');
     const q = query(
       reviewsRef, 
-      where('productId', '==', productId),
+      where('product', '==', productId), // Query by 'product' field instead of 'productId'
       orderBy('createdAt', 'desc')
     );
     
@@ -60,13 +66,18 @@ export const getProductReviews = async (productId) => {
     const reviews = [];
     snapshot.forEach((doc) => {
       const reviewData = { id: doc.id, ...doc.data() };
-      reviews.push(transformReview(reviewData));
+      console.log('📄 Raw review data:', reviewData);
+      const transformedReview = transformReview(reviewData);
+      console.log('🔄 Transformed review:', transformedReview);
+      reviews.push(transformedReview);
     });
     
     console.log(`✅ Found ${reviews.length} reviews for product ${productId}`);
+    console.log('📋 All transformed reviews:', reviews);
     return reviews;
   } catch (error) {
     console.error('❌ Error fetching product reviews:', error);
+    console.error('❌ Error details:', error.message);
     // Return empty array instead of throwing to not break the UI
     return [];
   }
@@ -128,7 +139,7 @@ export const getCustomerReviews = async (customerEmail) => {
 const transformReview = (firebaseReview) => {
   return {
     id: firebaseReview.id,
-    productId: firebaseReview.productId,
+    productId: firebaseReview.product || firebaseReview.productId, // Handle both field names
     productName: firebaseReview.productName || 'Unknown Product',
     customerName: firebaseReview.customerName || 'Anonymous',
     customerEmail: firebaseReview.customerEmail,
@@ -292,6 +303,35 @@ export const markReviewHelpful = async (reviewId) => {
   } catch (error) {
     console.error('❌ Error marking review as helpful:', error);
     throw error;
+  }
+};
+
+// Get latest reviews for homepage (max 5)
+export const getLatestReviews = async (limit = 5) => {
+  try {
+    console.log('🔍 Fetching latest reviews for homepage...');
+    
+    const reviewsRef = collection(db, 'Feedback');
+    const q = query(reviewsRef, orderBy('createdAt', 'desc'));
+    
+    const snapshot = await getDocs(q);
+    
+    const reviews = [];
+    snapshot.forEach((doc) => {
+      const reviewData = { id: doc.id, ...doc.data() };
+      reviews.push(transformReview(reviewData));
+    });
+    
+    // Limit to specified number and filter out reviews without proper data
+    const latestReviews = reviews
+      .filter(review => review.customerName && review.comment && review.rating > 0)
+      .slice(0, limit);
+    
+    console.log(`✅ Found ${latestReviews.length} latest reviews for homepage`);
+    return latestReviews;
+  } catch (error) {
+    console.error('❌ Error fetching latest reviews:', error);
+    return [];
   }
 };
 

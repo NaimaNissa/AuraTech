@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { sendContactEmail } from '@/lib/emailService';
+import { sendContactEmail } from '@/lib/contactEmailService';
 import { 
   Mail, 
   Phone, 

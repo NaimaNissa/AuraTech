@@ -17,11 +17,14 @@ import {
   Loader2
 } from 'lucide-react';
 import { getCategoriesData } from '../data/products';
+import { getLatestReviews } from '@/lib/reviewService';
 import bannerImage from '/Banner.png';
 
 export default function HomePage({ onNavigate }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
 
   const features = [
     {
@@ -87,24 +90,62 @@ export default function HomePage({ onNavigate }) {
       }
     };
 
+    const loadReviews = async () => {
+      try {
+        setReviewsLoading(true);
+        const latestReviews = await getLatestReviews(5);
+        setReviews(latestReviews);
+      } catch (error) {
+        console.error('Error loading reviews:', error);
+        // Fallback to default testimonials if no reviews found
+        setReviews([
+          {
+            customerName: "Sarah Johnson",
+            rating: 5,
+            comment: "Amazing quality products and fast shipping. Highly recommended!",
+            productName: "Premium Tech"
+          },
+          {
+            customerName: "Mike Chen",
+            rating: 5,
+            comment: "Great customer service and competitive prices. Will shop again!",
+            productName: "Smart Devices"
+          },
+          {
+            customerName: "Emily Davis",
+            rating: 5,
+            comment: "Love the variety of tech products. Found exactly what I needed.",
+            productName: "Tech Accessories"
+          }
+        ]);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
     loadCategories();
+    loadReviews();
   }, []);
 
-  const testimonials = [
+  // Use real reviews from database, fallback to testimonials if none available
+  const displayReviews = reviews.length > 0 ? reviews : [
     {
-      name: "Sarah Johnson",
+      customerName: "Sarah Johnson",
       rating: 5,
-      comment: "Amazing quality products and fast shipping. Highly recommended!"
+      comment: "Amazing quality products and fast shipping. Highly recommended!",
+      productName: "Premium Tech"
     },
     {
-      name: "Mike Chen",
+      customerName: "Mike Chen",
       rating: 5,
-      comment: "Great customer service and competitive prices. Will shop again!"
+      comment: "Great customer service and competitive prices. Will shop again!",
+      productName: "Smart Devices"
     },
     {
-      name: "Emily Davis",
+      customerName: "Emily Davis",
       rating: 5,
-      comment: "Love the variety of tech products. Found exactly what I needed."
+      comment: "Love the variety of tech products. Found exactly what I needed.",
+      productName: "Tech Accessories"
     }
   ];
 
@@ -295,19 +336,42 @@ export default function HomePage({ onNavigate }) {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <Card key={index} className="p-6">
-                <CardContent className="pt-6">
-                  <div className="flex mb-4">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
-                    ))}
-                  </div>
-                  <p className="text-gray-600 mb-4 italic">"{testimonial.comment}"</p>
-                  <p className="font-semibold text-gray-900">- {testimonial.name}</p>
-                </CardContent>
-              </Card>
-            ))}
+            {reviewsLoading ? (
+              // Loading skeleton for reviews
+              Array.from({ length: 3 }).map((_, index) => (
+                <Card key={index} className="p-6">
+                  <CardContent className="pt-6">
+                    <div className="flex mb-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-yellow-400" />
+                    </div>
+                    <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded mb-4"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              displayReviews.map((review, index) => (
+                <Card key={index} className="p-6">
+                  <CardContent className="pt-6">
+                    <div className="flex mb-4">
+                      {[...Array(review.rating)].map((_, i) => (
+                        <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
+                      ))}
+                    </div>
+                    <p className="text-gray-600 mb-4 italic">"{review.comment}"</p>
+                    <div className="flex justify-between items-center">
+                      <p className="font-semibold text-gray-900">- {review.customerName}</p>
+                      {review.productName && (
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                          {review.productName}
+                        </span>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
         </div>
       </section>

@@ -152,6 +152,11 @@ export default function OrdersPage({ onNavigate }) {
     return order.status === activeTab;
   });
 
+  // Calculate total spending
+  const totalSpent = orders.reduce((sum, order) => sum + order.total, 0);
+  const totalOrders = orders.length;
+  const averageOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0;
+
   const OrderCard = ({ order }) => (
     <Card className="mb-4">
       <CardHeader className="pb-3">
@@ -170,13 +175,22 @@ export default function OrdersPage({ onNavigate }) {
               {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
             </Badge>
             <div className="text-sm space-y-1" style={{color: 'oklch(0.5 0.05 70)'}}>
-              <p>Subtotal: ${(order.total - (order.shippingCost || 0)).toFixed(2)}</p>
+              <div className="flex justify-between">
+                <span>Subtotal:</span>
+                <span className="font-medium">${(order.total - (order.shippingCost || 0)).toFixed(2)}</span>
+              </div>
               {order.shippingCost > 0 && (
-                <p>Shipping: ${order.shippingCost.toFixed(2)}</p>
+                <div className="flex justify-between">
+                  <span>Shipping:</span>
+                  <span className="font-medium">${order.shippingCost.toFixed(2)}</span>
+                </div>
               )}
-              <p className="text-lg font-semibold" style={{color: 'oklch(0.3 0.1 70)'}}>
-                Total: ${order.total.toFixed(2)}
-              </p>
+              <div className="flex justify-between border-t pt-1 mt-2">
+                <span className="font-semibold">Total:</span>
+                <span className="text-lg font-bold" style={{color: 'oklch(0.3 0.1 70)'}}>
+                  ${order.total.toFixed(2)}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -184,12 +198,19 @@ export default function OrdersPage({ onNavigate }) {
       <CardContent>
         {/* Order Items */}
         <div className="space-y-3 mb-4">
+          <h5 className="font-medium mb-2 flex items-center gap-2" style={{color: 'oklch(0.3 0.1 70)'}}>
+            <Package className="h-4 w-4" />
+            Order Items
+          </h5>
           {order.items.map((item, index) => (
-            <div key={index} className="flex items-center gap-3 p-3 rounded-lg" style={{backgroundColor: 'oklch(0.98 0.05 70)'}}>
+            <div key={index} className="flex items-center gap-3 p-3 rounded-lg border" style={{backgroundColor: 'oklch(0.98 0.05 70)'}}>
               <img 
                 src={item.image} 
                 alt={item.name}
                 className="w-16 h-16 object-cover rounded-md"
+                onError={(e) => {
+                  e.target.src = 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop';
+                }}
               />
               <div className="flex-1">
                 <h4 className="font-medium" style={{color: 'oklch(0.3 0.1 70)'}}>
@@ -198,15 +219,46 @@ export default function OrdersPage({ onNavigate }) {
                 <p className="text-sm" style={{color: 'oklch(0.5 0.05 70)'}}>
                   Color: {item.color} • Qty: {item.quantity}
                 </p>
-                <p className="text-sm font-medium" style={{color: 'oklch(0.4 0.1 70)'}}>
-                  ${item.price.toFixed(2)}
-                </p>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-sm" style={{color: 'oklch(0.5 0.05 70)'}}>
+                    ${item.price.toFixed(2)} each
+                  </span>
+                  <span className="text-sm font-semibold" style={{color: 'oklch(0.3 0.1 70)'}}>
+                    ${(item.price * item.quantity).toFixed(2)}
+                  </span>
+                </div>
               </div>
             </div>
           ))}
         </div>
 
         <Separator className="my-4" />
+
+        {/* Order Summary */}
+        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+          <h5 className="font-medium mb-3 flex items-center gap-2" style={{color: 'oklch(0.3 0.1 70)'}}>
+            <CreditCard className="h-4 w-4" />
+            Order Summary
+          </h5>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span style={{color: 'oklch(0.5 0.05 70)'}}>Items ({order.items.reduce((sum, item) => sum + item.quantity, 0)}):</span>
+              <span className="font-medium">${(order.total - (order.shippingCost || 0)).toFixed(2)}</span>
+            </div>
+            {order.shippingCost > 0 && (
+              <div className="flex justify-between">
+                <span style={{color: 'oklch(0.5 0.05 70)'}}>Shipping:</span>
+                <span className="font-medium">${order.shippingCost.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t pt-2 mt-2">
+              <span className="font-semibold" style={{color: 'oklch(0.3 0.1 70)'}}>Total Paid:</span>
+              <span className="text-lg font-bold" style={{color: 'oklch(0.3 0.1 70)'}}>
+                ${order.total.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </div>
 
         {/* Order Details */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -444,6 +496,51 @@ export default function OrdersPage({ onNavigate }) {
           <Alert variant="destructive" className="mb-6">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
+        )}
+
+        {/* Spending Summary */}
+        {orders.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full" style={{backgroundColor: 'oklch(0.9 0.1 70)'}}>
+                  <CreditCard className="h-5 w-5" style={{color: 'oklch(0.4 0.1 70)'}} />
+                </div>
+                <div>
+                  <p className="text-sm" style={{color: 'oklch(0.5 0.05 70)'}}>Total Spent</p>
+                  <p className="text-xl font-bold" style={{color: 'oklch(0.3 0.1 70)'}}>
+                    ${totalSpent.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full" style={{backgroundColor: 'oklch(0.9 0.1 70)'}}>
+                  <Package className="h-5 w-5" style={{color: 'oklch(0.4 0.1 70)'}} />
+                </div>
+                <div>
+                  <p className="text-sm" style={{color: 'oklch(0.5 0.05 70)'}}>Total Orders</p>
+                  <p className="text-xl font-bold" style={{color: 'oklch(0.3 0.1 70)'}}>
+                    {totalOrders}
+                  </p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full" style={{backgroundColor: 'oklch(0.9 0.1 70)'}}>
+                  <Calendar className="h-5 w-5" style={{color: 'oklch(0.4 0.1 70)'}} />
+                </div>
+                <div>
+                  <p className="text-sm" style={{color: 'oklch(0.5 0.05 70)'}}>Avg Order Value</p>
+                  <p className="text-xl font-bold" style={{color: 'oklch(0.3 0.1 70)'}}>
+                    ${averageOrderValue.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
         )}
 
         {/* Tabs */}

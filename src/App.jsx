@@ -20,6 +20,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [productId, setProductId] = useState('');
+  const [shippingData, setShippingData] = useState(null);
 
   // Initialize page from URL on app load
   useEffect(() => {
@@ -130,6 +131,11 @@ function App() {
       setProductId(data);
       setCurrentPage(page);
       window.history.pushState({}, '', `/product/${data}`);
+    } else if (page === 'checkout' && data) {
+      // Set shipping data for checkout page
+      setShippingData(data);
+      setCurrentPage(page);
+      window.history.pushState({}, '', '/checkout');
     } else {
       setCurrentPage(page);
       // Clear product ID when navigating away from product details
@@ -139,6 +145,10 @@ function App() {
       // Clear search query when navigating away from products
       if (page !== 'products') {
         setSearchQuery('');
+      }
+      // Clear shipping data when navigating away from checkout
+      if (page !== 'checkout') {
+        setShippingData(null);
       }
       
       // Update URL based on page
@@ -199,7 +209,7 @@ function App() {
       case 'checkout':
         return (
           <ProtectedRoute>
-            <CheckoutPage onNavigate={handleNavigation} />
+            <CheckoutPage onNavigate={handleNavigation} shippingData={shippingData} />
           </ProtectedRoute>
         );
       case 'contact':

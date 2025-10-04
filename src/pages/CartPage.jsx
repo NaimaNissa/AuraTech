@@ -1,19 +1,64 @@
+import { useState, useEffect } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { 
   Minus, 
   Plus, 
   Trash2, 
   ShoppingBag, 
   ArrowLeft,
-  CreditCard
+  CreditCard,
+  MapPin,
+  Loader2
 } from 'lucide-react';
+import { getShippingCostForCountry, getAllCountries } from '../lib/shippingService';
 
 export default function CartPage({ onNavigate }) {
   const { items, updateQuantity, removeItem, getTotalPrice, getTotalItems, clearCart } = useCart();
+  const [selectedCountry, setSelectedCountry] = useState('United States');
+  const [shippingCost, setShippingCost] = useState(0);
+  const [isLoadingShipping, setIsLoadingShipping] = useState(false);
+  const [countries, setCountries] = useState([]);
+
+  // Load countries on component mount
+  useEffect(() => {
+    const loadCountries = () => {
+      const countryList = getAllCountries();
+      setCountries(countryList);
+    };
+    loadCountries();
+  }, []);
+
+  // Load shipping cost when country changes
+  useEffect(() => {
+    const loadShippingCost = async () => {
+      if (!selectedCountry) return;
+      
+      setIsLoadingShipping(true);
+      try {
+        const cost = await getShippingCostForCountry(selectedCountry);
+        setShippingCost(cost.cost || 0);
+        console.log('🚚 Shipping cost for', selectedCountry, ':', cost.cost);
+      } catch (error) {
+        console.error('❌ Error loading shipping cost:', error);
+        setShippingCost(0);
+      } finally {
+        setIsLoadingShipping(false);
+      }
+    };
+
+    loadShippingCost();
+  }, [selectedCountry]);
 
   const handleQuantityChange = (productId, newQuantity) => {
     if (newQuantity <= 0) {
@@ -21,6 +66,10 @@ export default function CartPage({ onNavigate }) {
     } else {
       updateQuantity(productId, newQuantity);
     }
+  };
+
+  const handleCountryChange = (country) => {
+    setSelectedCountry(country);
   };
 
   const formatPrice = (price) => {
@@ -147,6 +196,28 @@ export default function CartPage({ onNavigate }) {
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Country Selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Shipping Country
+                  </label>
+                  <Select value={selectedCountry} onValueChange={handleCountryChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map((country) => (
+                        <SelectItem key={country} value={country}>
+                          {country}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Separator />
+
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span>Subtotal ({getTotalItems()} items)</span>
@@ -154,26 +225,32 @@ export default function CartPage({ onNavigate }) {
                   </div>
                   
                   <div className="flex justify-between">
-                    <span>Shipping</span>
-                    <span className="text-green-600">Free</span>
-                  </div>
-                  
-                  <div className="flex justify-between">
-                    <span>Tax</span>
-                    <span>{formatPrice(getTotalPrice() * 0.08)}</span>
+                    <span>Shipping to {selectedCountry}</span>
+                    <span className="flex items-center gap-1">
+                      {isLoadingShipping ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : shippingCost === 0 ? (
+                        <span className="text-green-600">Free</span>
+                      ) : (
+                        formatPrice(shippingCost)
+                      )}
+                    </span>
                   </div>
                   
                   <Separator />
                   
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Total</span>
-                    <span>{formatPrice(getTotalPrice() * 1.08)}</span>
+                    <span>{formatPrice(getTotalPrice() + shippingCost)}</span>
                   </div>
                 </div>
 
                 <div className="space-y-3">
                   <Button 
-                    onClick={() => onNavigate('checkout')}
+                    onClick={() => onNavigate('checkout', { 
+                      shippingCountry: selectedCountry, 
+                      shippingCost: shippingCost 
+                    })}
                     className="w-full" 
                     size="lg"
                   >

@@ -6,7 +6,8 @@ import {
   where, 
   orderBy,
   doc,
-  getDoc
+  getDoc,
+  updateDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { sendOrderConfirmationEmailSimple } from './emailService';
@@ -178,7 +179,8 @@ export const getOrdersByEmail = async (email) => {
   try {
     console.log('🔍 Fetching orders for email:', email);
     const ordersRef = collection(db, 'orders');
-    const q = query(ordersRef, where('Email', '==', email), orderBy('createdAt', 'desc'));
+    // Remove orderBy from query to avoid index requirement, we'll sort in JavaScript
+    const q = query(ordersRef, where('Email', '==', email));
     const snapshot = await getDocs(q);
     
     console.log(`📦 Found ${snapshot.size} orders for ${email}`);
@@ -190,7 +192,10 @@ export const getOrdersByEmail = async (email) => {
       orders.push(orderData);
     });
     
-    console.log('✅ Returning orders:', orders);
+    // Sort orders by creation date (newest first) since we can't use orderBy in the query
+    orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    console.log('✅ Orders fetched and sorted successfully');
     return orders;
   } catch (error) {
     console.error('❌ Error fetching orders by email:', error);
@@ -231,6 +236,101 @@ export const createShipment = async (shipmentData) => {
     await addDoc(shipmentRef, shipment);
   } catch (error) {
     console.error('Error creating shipment:', error);
+    throw error;
+  }
+};
+
+// Get order statistics for a user
+export const getOrderStatistics = async (email) => {
+  try {
+    console.log('📊 Fetching order statistics for:', email);
+    const orders = await getOrdersByEmail(email);
+    
+    const stats = {
+      totalOrders: orders.length,
+      totalSpent: 0,
+      averageOrderValue: 0,
+      statusCounts: {
+        pending: 0,
+        processing: 0,
+        shipped: 0,
+        delivered: 0,
+        cancelled: 0
+      },
+      recentOrders: [],
+      monthlySpending: {}
+    };
+    
+    if (orders.length > 0) {
+      // Calculate totals
+      stats.totalSpent = orders.reduce((sum, order) => {
+        return sum + parseFloat(order.TotalPrice || 0);
+      }, 0);
+      
+      stats.averageOrderValue = stats.totalSpent / stats.totalOrders;
+      
+      // Count by status
+      orders.forEach(order => {
+        const status = (order.Status || 'pending').toLowerCase();
+        if (stats.statusCounts.hasOwnProperty(status)) {
+          stats.statusCounts[status]++;
+        }
+      });
+      
+      // Get recent orders (last 5)
+      stats.recentOrders = orders.slice(0, 5).map(order => ({
+        id: order.OrderID || order.id,
+        date: order.createdAt,
+        total: parseFloat(order.TotalPrice || 0),
+        status: order.Status || 'pending',
+        productName: order.productname || 'Unknown Product'
+      }));
+      
+      // Calculate monthly spending
+      orders.forEach(order => {
+        const date = new Date(order.createdAt);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (!stats.monthlySpending[monthKey]) {
+          stats.monthlySpending[monthKey] = 0;
+        }
+        stats.monthlySpending[monthKey] += parseFloat(order.TotalPrice || 0);
+      });
+    }
+    
+    console.log('✅ Order statistics calculated:', stats);
+    return stats;
+  } catch (error) {
+    console.error('❌ Error calculating order statistics:', error);
+    throw error;
+  }
+};
+
+// Update order status
+export const updateOrderStatus = async (orderId, newStatus, additionalData = {}) => {
+  try {
+    console.log('🔄 Updating order status:', orderId, 'to', newStatus);
+    
+    const ordersRef = collection(db, 'orders');
+    const q = query(ordersRef, where('OrderID', '==', orderId));
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      throw new Error('Order not found');
+    }
+    
+    const docRef = doc(db, 'orders', snapshot.docs[0].id);
+    const updateData = {
+      Status: newStatus,
+      updatedAt: new Date().toISOString(),
+      ...additionalData
+    };
+    
+    await updateDoc(docRef, updateData);
+    console.log('✅ Order status updated successfully');
+    return true;
+  } catch (error) {
+    console.error('❌ Error updating order status:', error);
     throw error;
   }
 };

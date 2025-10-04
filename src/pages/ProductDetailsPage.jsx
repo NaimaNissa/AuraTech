@@ -44,6 +44,7 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
   const [canReview, setCanReview] = useState({ canReview: false, reason: '' });
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
   
   const { addItem } = useCart();
   const { currentUser } = useAuth();
@@ -99,16 +100,26 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
   // Load product reviews
   const loadProductReviews = async (productId) => {
     try {
+      setIsLoadingReviews(true);
+      console.log('🔄 Loading reviews for product ID:', productId);
       const [reviewsData, ratingData] = await Promise.all([
         getProductReviews(productId),
         calculateProductRating(productId)
       ]);
       
+      console.log('📊 Reviews data received:', reviewsData);
+      console.log('📊 Rating data received:', ratingData);
+      
       setReviews(reviewsData);
       setProductRating(ratingData);
-      console.log('✅ Reviews loaded:', reviewsData.length, 'Rating:', ratingData.averageRating);
+      console.log('✅ Reviews loaded successfully:', reviewsData.length, 'reviews, Rating:', ratingData.averageRating);
     } catch (error) {
       console.error('❌ Error loading reviews:', error);
+      // Set empty state on error
+      setReviews([]);
+      setProductRating({ averageRating: 0, totalReviews: 0 });
+    } finally {
+      setIsLoadingReviews(false);
     }
   };
 
@@ -160,25 +171,46 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
     }
   };
 
-  // Transform colors array to color object structure for UI compatibility
+  // Get color data from product's colorImages field
   const getColorData = () => {
-    if (!product || !product.colors || product.colors.length === 0) {
+    if (!product) {
       return {
         default: {
           name: 'Default',
-          images: [product?.image || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop'],
-          price: product?.price || 0
+          images: ['https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop'],
+          price: 0
         }
       };
     }
 
+    // Use the colorImages from the product data if available
+    if (product.colorImages && Object.keys(product.colorImages).length > 0) {
+      console.log('🎨 Using colorImages from product data:', product.colorImages);
+      return product.colorImages;
+    }
+
+    // Fallback: create default color data from colors array
+    if (!product.colors || product.colors.length === 0) {
+      console.log('🎨 No colors found, using default');
+      return {
+        default: {
+          name: 'Default',
+          images: [product.image || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop'],
+          price: product.price || 0
+        }
+      };
+    }
+
+    console.log('🎨 Creating fallback color data from colors array:', product.colors);
     const colorData = {};
-    product.colors.forEach((color, index) => {
+    product.colors.forEach((color) => {
       const colorKey = color.toLowerCase().replace(/\s+/g, '');
+      const baseImage = product.image || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop';
+      
       colorData[colorKey] = {
         name: color,
-        images: [product.image || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop'],
-        price: product.price
+        images: [baseImage], // Start with single image, can be expanded in dashboard
+        price: product.price || 0
       };
     });
     
@@ -190,11 +222,6 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
   const currentColorData = colorData[currentColorKey] || colorData[Object.keys(colorData)[0]];
   const currentPrice = currentColorData?.price || product?.price || 0;
 
-  const handleColorChange = (color) => {
-    setSelectedColor(color);
-    setSelectedImageIndex(0); // Reset to first image when color changes
-  };
-
   const getCurrentImages = () => {
     if (!product) return [];
     
@@ -203,12 +230,29 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
     const currentColorKey = selectedColor ? selectedColor.toLowerCase().replace(/\s+/g, '') : Object.keys(colorData)[0];
     const currentColorData = colorData[currentColorKey];
     
-    if (currentColorData && currentColorData.images) {
+    console.log('🖼️ Getting current images:', {
+      selectedColor,
+      currentColorKey,
+      currentColorData,
+      availableColors: Object.keys(colorData)
+    });
+    
+    if (currentColorData && currentColorData.images && currentColorData.images.length > 0) {
+      console.log('✅ Found images for color:', currentColorData.images.length, 'images');
       return currentColorData.images;
     }
     
-    // Fallback to product images
-    return product.images || [product.image];
+    // Fallback to product images or default
+    const fallbackImages = product.images || [product.image || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop'];
+    console.log('⚠️ Using fallback images:', fallbackImages.length, 'images');
+    return fallbackImages;
+  };
+
+  // Handle color change with image reset
+  const handleColorChange = (color) => {
+    setSelectedColor(color);
+    setSelectedImageIndex(0); // Reset to first image when color changes
+    console.log('🎨 Color changed to:', color);
   };
 
   const handleImageClick = (index) => {
@@ -424,9 +468,16 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
               ))}
             </div>
             
-            {/* Image Counter */}
-            <div className="text-center text-sm text-gray-600">
-              {selectedImageIndex + 1} of {getCurrentImages().length} images
+            {/* Image Counter and Color Info */}
+            <div className="text-center space-y-1">
+              <div className="text-sm text-gray-600">
+                {selectedImageIndex + 1} of {getCurrentImages().length} images
+              </div>
+              {selectedColor && (
+                <div className="text-xs text-gray-500">
+                  Color: {selectedColor}
+                </div>
+              )}
             </div>
           </div>
 
@@ -491,23 +542,40 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                 <h3 className="text-lg font-semibold text-gray-900">
                   Color: {selectedColor || 'Default'}
                 </h3>
-                <div className="flex space-x-3">
-                  {product.colors.map((color, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleColorChange(color)}
-                      className={`relative px-4 py-2 border rounded-lg font-medium transition-all ${
-                        selectedColor === color
-                          ? 'border-gray-900 bg-gray-900 text-white'
-                          : 'border-gray-200 text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      {color}
-                      {selectedColor === color && (
-                        <Check className="absolute -top-1 -right-1 h-4 w-4 text-white bg-gray-900 rounded-full" />
-                      )}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap gap-3">
+                  {product.colors.map((color, index) => {
+                    const colorKey = color.toLowerCase().replace(/\s+/g, '');
+                    const colorDataForColor = colorData[colorKey];
+                    const imageCount = colorDataForColor?.images?.length || 0;
+                    
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => handleColorChange(color)}
+                        className={`relative px-4 py-2 border rounded-lg font-medium transition-all ${
+                          selectedColor === color
+                            ? 'border-gray-900 bg-gray-900 text-white'
+                            : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span>{color}</span>
+                          {imageCount > 0 && (
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              selectedColor === color
+                                ? 'bg-white bg-opacity-20 text-white'
+                                : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {imageCount} image{imageCount !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                        {selectedColor === color && (
+                          <Check className="absolute -top-1 -right-1 h-4 w-4 text-white bg-gray-900 rounded-full" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -662,14 +730,26 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                 <h2 className="text-2xl font-bold text-gray-900">
                   Customer Reviews
                 </h2>
-                {currentUser && canReview.canReview && (
+                <div className="flex items-center gap-2">
                   <Button
-                    onClick={() => setShowReviewForm(!showReviewForm)}
+                    onClick={() => loadProductReviews(product.id)}
                     variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                    disabled={isLoadingReviews}
                   >
-                    Write a Review
+                    <Loader2 className={`h-4 w-4 ${isLoadingReviews ? 'animate-spin' : ''}`} />
+                    {isLoadingReviews ? 'Loading...' : 'Refresh'}
                   </Button>
-                )}
+                  {currentUser && canReview.canReview && (
+                    <Button
+                      onClick={() => setShowReviewForm(!showReviewForm)}
+                      variant="outline"
+                    >
+                      Write a Review
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Rating Summary */}
@@ -773,54 +853,84 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
 
               {/* Reviews List */}
               <div className="space-y-4">
-                {reviews.length === 0 ? (
-                  <p className="text-gray-600 text-center py-8">
-                    No reviews yet. Be the first to review this product!
-                  </p>
+                {isLoadingReviews ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
+                    <p className="text-gray-600">Loading reviews...</p>
+                  </div>
+                ) : reviews.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600 mb-4">
+                      No reviews yet. Be the first to review this product!
+                    </p>
+                    {currentUser && canReview.canReview && (
+                      <Button
+                        onClick={() => setShowReviewForm(true)}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        Write the First Review
+                      </Button>
+                    )}
+                  </div>
                 ) : (
-                  reviews.map((review) => (
-                    <Card key={review.id} className="border-l-4 border-l-blue-500">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <div className="flex items-center space-x-2 mb-1">
-                              <span className="font-semibold">{review.customerName}</span>
-                              {review.verified && (
-                                <Badge variant="secondary" className="text-xs">
-                                  Verified Purchase
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <div className="flex items-center">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                  <Star
-                                    key={star}
-                                    className={`h-4 w-4 ${
-                                      star <= review.rating
-                                        ? 'text-yellow-400 fill-current'
-                                        : 'text-gray-300'
-                                    }`}
-                                  />
-                                ))}
+                  <>
+                    <div className="text-sm text-gray-600 mb-4">
+                      Showing {reviews.length} review{reviews.length !== 1 ? 's' : ''}
+                    </div>
+                    {reviews.map((review) => (
+                      <Card key={review.id} className="border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <span className="font-semibold text-gray-900">{review.customerName}</span>
+                                {review.verified && (
+                                  <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                                    ✓ Verified Purchase
+                                  </Badge>
+                                )}
                               </div>
-                              <span className="text-sm text-gray-600">
-                                {new Date(review.date).toLocaleDateString()}
-                              </span>
+                              <div className="flex items-center space-x-3">
+                                <div className="flex items-center">
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <Star
+                                      key={star}
+                                      className={`h-4 w-4 ${
+                                        star <= review.rating
+                                          ? 'text-yellow-400 fill-current'
+                                          : 'text-gray-300'
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="text-sm text-gray-600">
+                                  {new Date(review.date).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        {review.comment && (
-                          <p className="text-gray-700 mt-2">{review.comment}</p>
-                        )}
-                        {review.helpful > 0 && (
-                          <p className="text-sm text-gray-500 mt-2">
-                            {review.helpful} people found this helpful
-                          </p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))
+                          
+                          {review.comment && (
+                            <div className="mt-3">
+                              <p className="text-gray-700 leading-relaxed">{review.comment}</p>
+                            </div>
+                          )}
+                          
+                          {review.helpful > 0 && (
+                            <div className="mt-3 pt-3 border-t border-gray-100">
+                              <p className="text-sm text-gray-500">
+                                👍 {review.helpful} people found this helpful
+                              </p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </>
                 )}
               </div>
             </CardContent>

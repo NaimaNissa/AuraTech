@@ -549,12 +549,39 @@ export const generateInvoiceHTML = (orderData) => {
 // Send contact form email
 export const sendContactEmail = async (contactData) => {
   try {
-    console.log('📧 Preparing contact email:', contactData);
+    console.log('📧 Sending contact email:', contactData);
     
-    // Since EmailJS is not properly configured, we'll use a fallback approach
-    // Create a mailto link that opens the user's email client
-    const subject = encodeURIComponent(contactData.subject || 'Contact from AuraTech Website');
-    const body = encodeURIComponent(`
+    // Method 1: Try to use EmailJS if properly configured
+    try {
+      const response = await emailjs.send(
+        'service_auratech',
+        'template_contact',
+        {
+          from_name: contactData.name,
+          from_email: contactData.email,
+          subject: contactData.subject || 'Contact from AuraTech Website',
+          message: contactData.message,
+          to_email: 'auratechs30@gmail.com',
+          company_name: 'AuraTech',
+          reply_to: contactData.email
+        },
+        'your_public_key_here'
+      );
+      
+      console.log('✅ Email sent via EmailJS:', response);
+      return { 
+        success: true, 
+        method: 'emailjs',
+        recipient: 'auratechs30@gmail.com',
+        sender: contactData.email,
+        subject: contactData.subject || 'Contact from AuraTech Website'
+      };
+    } catch (emailjsError) {
+      console.log('⚠️ EmailJS failed, trying fallback method:', emailjsError);
+      
+      // Method 2: Fallback to mailto link
+      const subject = encodeURIComponent(contactData.subject || 'Contact from AuraTech Website');
+      const body = encodeURIComponent(`
 Hello AuraTech Team,
 
 You have received a new contact form submission:
@@ -569,25 +596,25 @@ ${contactData.message}
 ---
 This message was sent from the AuraTech website contact form.
 Reply directly to: ${contactData.email}
-    `.trim());
-    
-    const mailtoLink = `mailto:auratechs30@gmail.com?subject=${subject}&body=${body}`;
-    
-    // Open the user's email client
-    window.open(mailtoLink, '_blank');
-    
-    console.log('✅ Contact email prepared successfully - opened email client');
-    
-    // Return success response
-    return { 
-      success: true, 
-      method: 'mailto',
-      recipient: 'auratechs30@gmail.com',
-      sender: contactData.email,
-      subject: contactData.subject || 'Contact from AuraTech Website'
-    };
+      `.trim());
+      
+      const mailtoLink = `mailto:auratechs30@gmail.com?subject=${subject}&body=${body}`;
+      
+      // Open the user's email client
+      window.open(mailtoLink, '_blank');
+      
+      console.log('✅ Contact email prepared successfully - opened email client');
+      
+      return { 
+        success: true, 
+        method: 'mailto',
+        recipient: 'auratechs30@gmail.com',
+        sender: contactData.email,
+        subject: contactData.subject || 'Contact from AuraTech Website'
+      };
+    }
   } catch (error) {
-    console.error('❌ Error preparing contact email:', error);
+    console.error('❌ Error sending contact email:', error);
     throw error;
   }
 };

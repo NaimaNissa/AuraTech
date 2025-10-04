@@ -1,324 +1,226 @@
-// Shipping cost calculation service
-import { collection, getDocs, query, where } from 'firebase/firestore';
+// src/lib/shippingService.js
 import { db } from './firebase';
+import { 
+  collection, 
+  addDoc, 
+  getDocs, 
+  doc, 
+  updateDoc, 
+  deleteDoc,
+  query,
+  orderBy
+} from 'firebase/firestore';
 
-// Default shipping rates (fallback if no specific rates found)
-const DEFAULT_SHIPPING_RATES = {
-  // Domestic shipping (same country)
-  domestic: {
-    standard: 5.99,
-    express: 12.99,
-    overnight: 24.99
-  },
-  // International shipping
-  international: {
-    standard: 15.99,
-    express: 29.99,
-    overnight: 49.99
-  }
+// Default shipping costs for different countries
+const DEFAULT_SHIPPING_COSTS = {
+  'United States': 0,
+  'Canada': 15,
+  'United Kingdom': 25,
+  'Germany': 20,
+  'France': 20,
+  'Australia': 30,
+  'Japan': 25,
+  'India': 20,
+  'Brazil': 35,
+  'Mexico': 20,
+  'China': 15,
+  'South Korea': 25,
+  'Italy': 20,
+  'Spain': 20,
+  'Netherlands': 20,
+  'Sweden': 25,
+  'Norway': 30,
+  'Denmark': 25,
+  'Finland': 25,
+  'Switzerland': 25,
+  'Austria': 20,
+  'Belgium': 20,
+  'Poland': 15,
+  'Czech Republic': 15,
+  'Hungary': 15,
+  'Portugal': 20,
+  'Greece': 20,
+  'Ireland': 25,
+  'New Zealand': 35,
+  'Singapore': 20,
+  'Hong Kong': 20,
+  'Taiwan': 20,
+  'Thailand': 15,
+  'Malaysia': 15,
+  'Indonesia': 20,
+  'Philippines': 20,
+  'Vietnam': 15,
+  'South Africa': 30,
+  'Egypt': 25,
+  'Nigeria': 30,
+  'Kenya': 30,
+  'Morocco': 25,
+  'Tunisia': 25,
+  'Algeria': 25,
+  'Israel': 25,
+  'Turkey': 20,
+  'Russia': 25,
+  'Ukraine': 20,
+  'Argentina': 35,
+  'Chile': 30,
+  'Colombia': 30,
+  'Peru': 30,
+  'Venezuela': 35,
+  'Ecuador': 30,
+  'Uruguay': 35,
+  'Paraguay': 35,
+  'Bolivia': 35
 };
 
-// Common city/state/country mappings for shipping zones
-const SHIPPING_ZONES = {
-  // Zone 1: Local/Same City (Cheapest)
-  zone1: {
-    cost: 3.99,
-    deliveryDays: '1-2',
-    cities: ['new york', 'nyc', 'manhattan', 'brooklyn', 'queens', 'bronx', 'staten island'],
-    states: [],
-    countries: []
-  },
-  // Zone 2: Same State/Region
-  zone2: {
-    cost: 7.99,
-    deliveryDays: '2-3',
-    cities: [],
-    states: ['new york', 'ny', 'new jersey', 'nj', 'connecticut', 'ct', 'pennsylvania', 'pa'],
-    countries: []
-  },
-  // Zone 3: Same Country
-  zone3: {
-    cost: 12.99,
-    deliveryDays: '3-5',
-    cities: [],
-    states: ['california', 'ca', 'texas', 'tx', 'florida', 'fl', 'illinois', 'il', 'ohio', 'oh'],
-    countries: ['united states', 'usa', 'us']
-  },
-  // Zone 4: International
-  zone4: {
-    cost: 24.99,
-    deliveryDays: '7-14',
-    cities: [],
-    states: [],
-    countries: ['canada', 'mexico', 'united kingdom', 'uk', 'germany', 'france', 'australia', 'japan']
-  },
-  // Zone 5: Remote International
-  zone5: {
-    cost: 39.99,
-    deliveryDays: '14-21',
-    cities: [],
-    states: [],
-    countries: ['other'] // Default for unlisted countries
-  }
-};
-
-// Parse address components
-const parseAddress = (address) => {
-  if (!address || typeof address !== 'string') {
-    return { city: '', state: '', country: '', full: '' };
-  }
-
-  const addressLower = address.toLowerCase().trim();
-  const parts = addressLower.split(',').map(part => part.trim());
-  
-  return {
-    city: parts[0] || '',
-    state: parts[1] || '',
-    country: parts[parts.length - 1] || '',
-    full: addressLower
-  };
-};
-
-// Determine shipping zone based on address
-const determineShippingZone = (address) => {
-  const { city, state, country, full } = parseAddress(address);
-  
-  console.log('🗺️ Determining shipping zone for:', { city, state, country });
-  
-  // Check Zone 1 (Local cities)
-  for (const zoneCity of SHIPPING_ZONES.zone1.cities) {
-    if (city.includes(zoneCity) || full.includes(zoneCity)) {
-      console.log('📍 Found Zone 1 (Local)');
-      return 'zone1';
-    }
-  }
-  
-  // Check Zone 2 (Same state/region)
-  for (const zoneState of SHIPPING_ZONES.zone2.states) {
-    if (state.includes(zoneState) || full.includes(zoneState)) {
-      console.log('📍 Found Zone 2 (Regional)');
-      return 'zone2';
-    }
-  }
-  
-  // Check Zone 3 (Same country)
-  for (const zoneState of SHIPPING_ZONES.zone3.states) {
-    if (state.includes(zoneState) || full.includes(zoneState)) {
-      console.log('📍 Found Zone 3 (National)');
-      return 'zone3';
-    }
-  }
-  
-  for (const zoneCountry of SHIPPING_ZONES.zone3.countries) {
-    if (country.includes(zoneCountry) || full.includes(zoneCountry)) {
-      console.log('📍 Found Zone 3 (National)');
-      return 'zone3';
-    }
-  }
-  
-  // Check Zone 4 (International)
-  for (const zoneCountry of SHIPPING_ZONES.zone4.countries) {
-    if (country.includes(zoneCountry) || full.includes(zoneCountry)) {
-      console.log('📍 Found Zone 4 (International)');
-      return 'zone4';
-    }
-  }
-  
-  // Default to Zone 5 (Remote International)
-  console.log('📍 Defaulting to Zone 5 (Remote International)');
-  return 'zone5';
-};
-
-// Calculate shipping cost based on address
-export const calculateShippingCost = async (address, orderTotal = 0) => {
+// Get all shipping costs from Firebase
+export const getShippingCosts = async () => {
   try {
-    console.log('🚚 Calculating shipping cost for address:', address);
-    console.log('💰 Order total:', orderTotal);
+    console.log('🚚 Fetching shipping costs from Firebase...');
     
-    // Free shipping for orders over $100
-    if (orderTotal >= 100) {
-      console.log('🎉 Free shipping applied (order over $100)');
-      return {
-        cost: 0,
-        zone: 'free',
-        deliveryDays: '3-5',
-        method: 'Free Shipping',
-        reason: 'Order over $100'
-      };
-    }
+    const shippingRef = collection(db, 'shippingCosts');
+    const q = query(shippingRef, orderBy('country', 'asc'));
+    const snapshot = await getDocs(q);
     
-    // Determine shipping zone
-    const zone = determineShippingZone(address);
-    const zoneData = SHIPPING_ZONES[zone];
-    
-    console.log('✅ Shipping calculation complete:', {
-      zone,
-      cost: zoneData.cost,
-      deliveryDays: zoneData.deliveryDays
-    });
-    
-    return {
-      cost: zoneData.cost,
-      zone,
-      deliveryDays: zoneData.deliveryDays,
-      method: `Standard Shipping (${zoneData.deliveryDays} business days)`,
-      reason: `Shipping to ${zone.replace('zone', 'Zone ')}`
-    };
-    
-  } catch (error) {
-    console.error('❌ Error calculating shipping cost:', error);
-    
-    // Fallback to default shipping
-    return {
-      cost: DEFAULT_SHIPPING_RATES.domestic.standard,
-      zone: 'default',
-      deliveryDays: '5-7',
-      method: 'Standard Shipping',
-      reason: 'Default rate applied due to calculation error'
-    };
-  }
-};
-
-// Get shipping options for address (for checkout selection)
-export const getShippingOptions = async (address, orderTotal = 0) => {
-  try {
-    const baseShipping = await calculateShippingCost(address, orderTotal);
-    
-    // If free shipping applies, only show free option
-    if (baseShipping.cost === 0) {
-      return [baseShipping];
-    }
-    
-    const zone = baseShipping.zone;
-    const baseCost = baseShipping.cost;
-    
-    // Generate shipping options based on zone
-    const options = [
-      {
-        id: 'standard',
-        name: 'Standard Shipping',
-        cost: baseCost,
-        deliveryDays: SHIPPING_ZONES[zone]?.deliveryDays || '5-7',
-        description: 'Regular delivery'
-      },
-      {
-        id: 'express',
-        name: 'Express Shipping',
-        cost: baseCost * 1.8, // 80% more than standard
-        deliveryDays: '1-3',
-        description: 'Faster delivery'
-      },
-      {
-        id: 'overnight',
-        name: 'Overnight Shipping',
-        cost: baseCost * 3, // 3x standard cost
-        deliveryDays: '1',
-        description: 'Next business day delivery'
-      }
-    ];
-    
-    return options;
-  } catch (error) {
-    console.error('❌ Error getting shipping options:', error);
-    
-    // Return default options
-    return [
-      {
-        id: 'standard',
-        name: 'Standard Shipping',
-        cost: DEFAULT_SHIPPING_RATES.domestic.standard,
-        deliveryDays: '5-7',
-        description: 'Regular delivery'
-      }
-    ];
-  }
-};
-
-// Validate shipping address
-export const validateShippingAddress = (address) => {
-  if (!address || typeof address !== 'string') {
-    return {
-      isValid: false,
-      errors: ['Address is required']
-    };
-  }
-  
-  const trimmedAddress = address.trim();
-  
-  if (trimmedAddress.length < 10) {
-    return {
-      isValid: false,
-      errors: ['Address must be at least 10 characters long']
-    };
-  }
-  
-  // Basic validation - should contain some address components
-  const hasNumbers = /\d/.test(trimmedAddress);
-  const hasCommas = trimmedAddress.includes(',');
-  
-  if (!hasNumbers && !hasCommas) {
-    return {
-      isValid: false,
-      errors: ['Please provide a complete address with street number and city']
-    };
-  }
-  
-  return {
-    isValid: true,
-    errors: []
-  };
-};
-
-// Get shipping cost from Firebase shipment collection (if admin has set custom rates)
-export const getCustomShippingRates = async (address) => {
-  try {
-    console.log('🔍 Checking for custom shipping rates...');
-    
-    const shipmentsRef = collection(db, 'shipments');
-    const snapshot = await getDocs(shipmentsRef);
-    
-    // Look for matching address patterns in existing shipments
-    const customRates = [];
+    const shippingCosts = {};
     snapshot.forEach((doc) => {
       const data = doc.data();
-      if (data.Address && data.ShippingCost) {
-        customRates.push({
-          address: data.Address,
-          cost: parseFloat(data.ShippingCost) || 0
-        });
-      }
+      shippingCosts[data.country] = {
+        id: doc.id,
+        country: data.country,
+        cost: data.cost,
+        currency: data.currency || 'USD',
+        estimatedDays: data.estimatedDays || '5-7',
+        updatedAt: data.updatedAt
+      };
     });
     
-    // Try to find a matching rate
-    const addressLower = address.toLowerCase();
-    for (const rate of customRates) {
-      const rateAddressLower = rate.address.toLowerCase();
-      
-      // Simple matching - if addresses share common components
-      const addressParts = addressLower.split(',').map(p => p.trim());
-      const rateParts = rateAddressLower.split(',').map(p => p.trim());
-      
-      let matches = 0;
-      for (const part of addressParts) {
-        for (const ratePart of rateParts) {
-          if (part.includes(ratePart) || ratePart.includes(part)) {
-            matches++;
-          }
-        }
-      }
-      
-      // If we have good matches, use this rate
-      if (matches >= 2) {
-        console.log('✅ Found custom shipping rate:', rate.cost);
-        return rate.cost;
-      }
+    // If no shipping costs in Firebase, return defaults
+    if (Object.keys(shippingCosts).length === 0) {
+      console.log('⚠️ No shipping costs found, using defaults');
+      return DEFAULT_SHIPPING_COSTS;
     }
     
-    console.log('ℹ️ No custom shipping rates found');
-    return null;
+    console.log(`✅ Found ${Object.keys(shippingCosts).length} shipping costs`);
+    return shippingCosts;
   } catch (error) {
-    console.error('❌ Error fetching custom shipping rates:', error);
-    return null;
+    console.error('❌ Error fetching shipping costs:', error);
+    // Return defaults on error
+    return DEFAULT_SHIPPING_COSTS;
   }
 };
 
+// Get shipping cost for a specific country
+export const getShippingCostForCountry = async (country) => {
+  try {
+    const shippingCosts = await getShippingCosts();
+    return shippingCosts[country] || { cost: 25, currency: 'USD', estimatedDays: '5-7' };
+  } catch (error) {
+    console.error('❌ Error getting shipping cost for country:', error);
+    return { cost: 25, currency: 'USD', estimatedDays: '5-7' };
+  }
+};
+
+// Add or update shipping cost for a country
+export const updateShippingCost = async (country, cost, currency = 'USD', estimatedDays = '5-7') => {
+  try {
+    console.log('🚚 Updating shipping cost for:', country, cost);
+    
+    const shippingRef = collection(db, 'shippingCosts');
+    
+    // Check if country already exists
+    const existingCosts = await getShippingCosts();
+    const existingCost = existingCosts[country];
+    
+    if (existingCost) {
+      // Update existing
+      const docRef = doc(db, 'shippingCosts', existingCost.id);
+      await updateDoc(docRef, {
+        cost: parseFloat(cost),
+        currency,
+        estimatedDays,
+        updatedAt: new Date().toISOString()
+      });
+      console.log('✅ Shipping cost updated');
+    } else {
+      // Add new
+      await addDoc(shippingRef, {
+        country,
+        cost: parseFloat(cost),
+        currency,
+        estimatedDays,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      console.log('✅ Shipping cost added');
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Error updating shipping cost:', error);
+    throw error;
+  }
+};
+
+// Delete shipping cost for a country
+export const deleteShippingCost = async (country) => {
+  try {
+    console.log('🗑️ Deleting shipping cost for:', country);
+    
+    const existingCosts = await getShippingCosts();
+    const existingCost = existingCosts[country];
+    
+    if (existingCost) {
+      const docRef = doc(db, 'shippingCosts', existingCost.id);
+      await deleteDoc(docRef);
+      console.log('✅ Shipping cost deleted');
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('❌ Error deleting shipping cost:', error);
+    throw error;
+  }
+};
+
+// Get list of all countries
+export const getAllCountries = () => {
+  return Object.keys(DEFAULT_SHIPPING_COSTS).sort();
+};
+
+// Initialize default shipping costs in Firebase
+export const initializeDefaultShippingCosts = async () => {
+  try {
+    console.log('🚚 Initializing default shipping costs...');
+    
+    const existingCosts = await getShippingCosts();
+    
+    // Only add countries that don't exist
+    const countriesToAdd = Object.keys(DEFAULT_SHIPPING_COSTS).filter(
+      country => !existingCosts[country]
+    );
+    
+    if (countriesToAdd.length === 0) {
+      console.log('✅ All default shipping costs already exist');
+      return;
+    }
+    
+    const shippingRef = collection(db, 'shippingCosts');
+    
+    for (const country of countriesToAdd) {
+      await addDoc(shippingRef, {
+        country,
+        cost: DEFAULT_SHIPPING_COSTS[country],
+        currency: 'USD',
+        estimatedDays: '5-7',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+    
+    console.log(`✅ Added ${countriesToAdd.length} default shipping costs`);
+  } catch (error) {
+    console.error('❌ Error initializing default shipping costs:', error);
+    throw error;
+  }
+};
