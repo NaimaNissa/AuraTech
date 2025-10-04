@@ -31,14 +31,15 @@ import {
   priceRanges, 
   initializeProducts 
 } from '../data/products';
+import { getActiveCategories } from '@/lib/categoryService';
 
-export default function ProductsPage({ searchQuery = '', onNavigate }) {
+export default function ProductsPage({ searchQuery = '', selectedCategory: initialCategory = '', onNavigate }) {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState(initialCategory || 'all');
   const [selectedBrand, setSelectedBrand] = useState('All Brands');
   const [selectedPriceRange, setSelectedPriceRange] = useState('all');
   const [sortBy, setSortBy] = useState('name');
@@ -56,11 +57,38 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
       try {
         setLoading(true);
         setError(null);
-        const { products: firebaseProducts, categories: firebaseCategories, brands: firebaseBrands } = await initializeProducts();
+        
+        // Load products and brands from existing system
+        const { products: firebaseProducts, brands: firebaseBrands } = await initializeProducts();
         setProducts(firebaseProducts);
-        setCategories(firebaseCategories);
         setBrands(firebaseBrands);
         setFilteredProducts(firebaseProducts);
+        
+        // Load categories from database
+        try {
+          console.log('📁 Loading categories for product filtering...');
+          const categoriesData = await getActiveCategories();
+          if (categoriesData && categoriesData.length > 0) {
+            console.log('✅ Loaded categories from database:', categoriesData);
+            // Map database categories to display format
+            const displayCategories = categoriesData.map(cat => ({
+              id: cat.id,
+              name: cat.name,
+              count: 0 // Will be calculated based on products
+            }));
+            setCategories(displayCategories);
+          } else {
+            console.log('⚠️ No categories found, using fallback');
+            // Fallback to static categories
+            const { categories: firebaseCategories } = await initializeProducts();
+            setCategories(firebaseCategories);
+          }
+        } catch (categoryError) {
+          console.log('⚠️ Category loading failed, using fallback:', categoryError.message);
+          // Fallback to static categories
+          const { categories: firebaseCategories } = await initializeProducts();
+          setCategories(firebaseCategories);
+        }
       } catch (err) {
         setError('Failed to load products. Please try again later.');
         console.error('Error loading products:', err);
@@ -77,6 +105,12 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
   }, [searchQuery]);
 
   useEffect(() => {
+    if (initialCategory) {
+      setSelectedCategory(initialCategory);
+    }
+  }, [initialCategory]);
+
+  useEffect(() => {
     let filtered = [...products];
 
     // Filter by search query
@@ -90,13 +124,43 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
 
     // Filter by category
     if (selectedCategory !== 'all') {
+      console.log('🔍 Filtering by category:', selectedCategory);
       filtered = filtered.filter(product => {
         // Handle both the mapped category and original Firebase category fields
-        return product.category === selectedCategory || 
-               (selectedCategory === 'smartphones' && (product.category === 'phone' || product.category === 'smartphones')) ||
-               (selectedCategory === 'cameras' && (product.category === 'camera' || product.category === 'cameras')) ||
-               (selectedCategory === 'tablets' && product.category === 'tablets');
+        const productCategory = product.category?.toLowerCase();
+        const selectedCategoryLower = selectedCategory.toLowerCase();
+        
+        console.log('🔍 Product category:', productCategory, 'Selected:', selectedCategoryLower);
+        
+        // Direct match
+        if (productCategory === selectedCategoryLower) {
+          console.log('✅ Direct category match');
+          return true;
+        }
+        
+        // Handle common category mappings
+        const categoryMappings = {
+          'smartphones': ['phone', 'smartphones', 'mobile', 'smartphone'],
+          'cameras': ['camera', 'cameras', 'photography'],
+          'tablets': ['tablet', 'tablets', 'ipad'],
+          'laptops': ['laptop', 'laptops', 'notebook', 'computer'],
+          'audio': ['audio', 'headphones', 'speakers', 'sound'],
+          'gaming': ['gaming', 'game', 'console', 'controller']
+        };
+        
+        // Check if product category matches any of the mapped categories
+        if (categoryMappings[selectedCategoryLower]) {
+          const matches = categoryMappings[selectedCategoryLower].includes(productCategory);
+          if (matches) {
+            console.log('✅ Category mapping match');
+          }
+          return matches;
+        }
+        
+        console.log('❌ No category match');
+        return false;
       });
+      console.log('🔍 Filtered products count:', filtered.length);
     }
 
     // Filter by brand
@@ -161,7 +225,7 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
         <img
           src={product.image}
           alt={product.name}
-          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-40 sm:h-48 object-cover group-hover:scale-105 transition-transform duration-300"
         />
         {!product.inStock && (
           <Badge className="absolute top-2 left-2 bg-red-500">Out of Stock</Badge>
@@ -175,10 +239,10 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
           <Heart className="h-4 w-4 text-gray-600 hover:text-red-500" />
         </button>
       </div>
-      <CardContent className="p-4">
+      <CardContent className="p-3 sm:p-4">
         <div className="mb-2">
-          <h3 className="font-semibold text-lg mb-1 line-clamp-2">{product.name}</h3>
-          <p className="text-sm text-gray-600 mb-2">{product.brand}</p>
+          <h3 className="font-semibold text-base sm:text-lg mb-1 line-clamp-2">{product.name}</h3>
+          <p className="text-xs sm:text-sm text-gray-600 mb-2">{product.brand}</p>
         </div>
         
         <div className="flex items-center mb-2">
@@ -191,15 +255,15 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
 
         <div className="mb-3">
           <div className="flex items-center space-x-2">
-            <span className="text-2xl font-bold text-blue-600">${product.price}</span>
+            <span className="text-xl sm:text-2xl font-bold text-blue-600">${product.price}</span>
             {product.originalPrice > product.price && (
-              <span className="text-sm text-gray-500 line-through">${product.originalPrice}</span>
+              <span className="text-xs sm:text-sm text-gray-500 line-through">${product.originalPrice}</span>
             )}
           </div>
         </div>
 
         <div className="mb-3">
-          <p className="text-sm text-gray-600 line-clamp-2">{product.description}</p>
+          <p className="text-xs sm:text-sm text-gray-600 line-clamp-2">{product.description}</p>
         </div>
 
         <div className="space-y-2">
@@ -383,7 +447,7 @@ export default function ProductsPage({ searchQuery = '', onNavigate }) {
           </div>
 
           {/* Filters */}
-          <div className={`grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 ${showFilters ? 'block' : 'hidden lg:grid'}`}>
+          <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 ${showFilters ? 'block' : 'hidden lg:grid'}`}>
             {/* Category Filter */}
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger>

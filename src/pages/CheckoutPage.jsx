@@ -84,6 +84,12 @@ export default function CheckoutPage({ onNavigate, shippingData }) {
   }, [shippingInfo.address, shippingInfo.city, shippingInfo.state, shippingInfo.zipCode, shippingInfo.country]);
 
   const calculateShippingForAddress = async () => {
+    // If shipping cost is already set from cart, don't recalculate
+    if (shippingData?.shippingCost !== undefined) {
+      console.log('🚚 Using shipping cost from cart:', shippingData.shippingCost);
+      return;
+    }
+
     const fullAddress = `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}, ${shippingInfo.country}`.trim();
     
     if (!shippingInfo.address || !shippingInfo.city) {
@@ -588,16 +594,12 @@ export default function CheckoutPage({ onNavigate, shippingData }) {
                     </span>
                   </div>
                   
-                  <div className="flex justify-between">
-                    <span>Tax</span>
-                    <span>{formatPrice((getTotalPrice() + shippingCost) * 0.08)}</span>
-                  </div>
                   
                   <Separator />
                   
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Total</span>
-                    <span>{formatPrice((getTotalPrice() + shippingCost) * 1.08)}</span>
+                    <span>{formatPrice(getTotalPrice() + shippingCost)}</span>
                   </div>
                 </div>
 

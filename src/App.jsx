@@ -20,6 +20,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [productId, setProductId] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [shippingData, setShippingData] = useState(null);
 
   // Initialize page from URL on app load
@@ -136,6 +137,11 @@ function App() {
       setShippingData(data);
       setCurrentPage(page);
       window.history.pushState({}, '', '/checkout');
+    } else if (page === 'products' && data) {
+      // Set category filter for products page
+      setSelectedCategory(data);
+      setCurrentPage(page);
+      window.history.pushState({}, '', '/products');
     } else {
       setCurrentPage(page);
       // Clear product ID when navigating away from product details
@@ -145,6 +151,10 @@ function App() {
       // Clear search query when navigating away from products
       if (page !== 'products') {
         setSearchQuery('');
+      }
+      // Clear category filter when navigating away from products
+      if (page !== 'products') {
+        setSelectedCategory('');
       }
       // Clear shipping data when navigating away from checkout
       if (page !== 'checkout') {
@@ -197,7 +207,7 @@ function App() {
       case 'auth':
         return <AuthPage onNavigate={handleNavigation} />;
       case 'products':
-        return <ProductsPage searchQuery={searchQuery} onNavigate={handleNavigation} />;
+        return <ProductsPage searchQuery={searchQuery} selectedCategory={selectedCategory} onNavigate={handleNavigation} />;
       case 'product-details':
         return <ProductDetailsPage productId={productId} onNavigate={handleNavigation} />;
       case 'cart':

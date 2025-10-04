@@ -22,6 +22,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { getShippingCostForCountry, getAllCountries } from '../lib/shippingService';
+import { getDashboardCountries, getDashboardShippingCosts } from '../lib/countryShippingService';
 
 export default function CartPage({ onNavigate }) {
   const { items, updateQuantity, removeItem, getTotalPrice, getTotalItems, clearCart } = useCart();
@@ -32,9 +33,24 @@ export default function CartPage({ onNavigate }) {
 
   // Load countries on component mount
   useEffect(() => {
-    const loadCountries = () => {
-      const countryList = getAllCountries();
-      setCountries(countryList);
+    const loadCountries = async () => {
+      try {
+        console.log('🌍 Loading countries from dashboard...');
+        const dashboardCountries = await getDashboardCountries();
+        
+        if (dashboardCountries && dashboardCountries.length > 0) {
+          console.log('✅ Loaded countries from dashboard:', dashboardCountries.length);
+          setCountries(dashboardCountries.map(country => country.name));
+        } else {
+          console.log('⚠️ No dashboard countries found, using fallback');
+          const fallbackCountries = getAllCountries();
+          setCountries(fallbackCountries);
+        }
+      } catch (error) {
+        console.error('❌ Error loading dashboard countries:', error);
+        const fallbackCountries = getAllCountries();
+        setCountries(fallbackCountries);
+      }
     };
     loadCountries();
   }, []);
@@ -46,9 +62,22 @@ export default function CartPage({ onNavigate }) {
       
       setIsLoadingShipping(true);
       try {
-        const cost = await getShippingCostForCountry(selectedCountry);
-        setShippingCost(cost.cost || 0);
-        console.log('🚚 Shipping cost for', selectedCountry, ':', cost.cost);
+        console.log('🚚 Loading shipping cost for:', selectedCountry);
+        
+        // Try to get cost from dashboard first
+        const dashboardCosts = await getDashboardShippingCosts();
+        const countryKey = selectedCountry.toLowerCase();
+        
+        if (dashboardCosts[countryKey] && dashboardCosts[countryKey].isActive) {
+          const cost = dashboardCosts[countryKey].cost;
+          setShippingCost(cost);
+          console.log('✅ Dashboard shipping cost for', selectedCountry, ':', cost);
+        } else {
+          // Fallback to existing service
+          const cost = await getShippingCostForCountry(selectedCountry);
+          setShippingCost(cost.cost || 0);
+          console.log('📋 Fallback shipping cost for', selectedCountry, ':', cost.cost);
+        }
       } catch (error) {
         console.error('❌ Error loading shipping cost:', error);
         setShippingCost(0);

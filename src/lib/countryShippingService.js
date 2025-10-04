@@ -1,6 +1,67 @@
 // Country-based shipping service that syncs with dashboard
-import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc, orderBy } from 'firebase/firestore';
 import { db } from './firebase';
+
+// Fetch shipping costs from dashboard
+export const getDashboardShippingCosts = async () => {
+  try {
+    console.log('🚚 Fetching shipping costs from dashboard...');
+    
+    const shippingRef = collection(db, 'shippingCosts');
+    const q = query(shippingRef, orderBy('country', 'asc'));
+    const snapshot = await getDocs(q);
+    
+    const costs = {};
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      costs[data.country.toLowerCase()] = {
+        id: doc.id,
+        country: data.country,
+        cost: parseFloat(data.cost) || 0,
+        currency: data.currency || 'USD',
+        estimatedDays: data.estimatedDays || '5-7',
+        isActive: data.isActive !== false // Default to true if not specified
+      };
+    });
+    
+    console.log('✅ Loaded shipping costs from dashboard:', Object.keys(costs).length, 'countries');
+    return costs;
+  } catch (error) {
+    console.error('❌ Error fetching dashboard shipping costs:', error);
+    return {};
+  }
+};
+
+// Get list of countries from dashboard
+export const getDashboardCountries = async () => {
+  try {
+    console.log('🌍 Fetching countries from dashboard...');
+    
+    const shippingRef = collection(db, 'shippingCosts');
+    const q = query(shippingRef, orderBy('country', 'asc'));
+    const snapshot = await getDocs(q);
+    
+    const countries = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.isActive !== false) { // Only include active countries
+        countries.push({
+          id: doc.id,
+          name: data.country,
+          cost: parseFloat(data.cost) || 0,
+          currency: data.currency || 'USD',
+          estimatedDays: data.estimatedDays || '5-7'
+        });
+      }
+    });
+    
+    console.log('✅ Loaded countries from dashboard:', countries.length, 'countries');
+    return countries;
+  } catch (error) {
+    console.error('❌ Error fetching dashboard countries:', error);
+    return [];
+  }
+};
 
 // Default shipping rates by country (fallback if no dashboard rates found)
 const DEFAULT_COUNTRY_RATES = {
@@ -158,15 +219,21 @@ export const calculateCountryShippingCost = async (address, orderTotal = 0) => {
     const country = parseCountryFromAddress(address);
     
     // Try to get rates from dashboard first
-    const dashboardRates = await getDashboardShippingRates();
-    let shippingCost = dashboardRates[country];
+    const dashboardCosts = await getDashboardShippingCosts();
+    let shippingData = dashboardCosts[country];
     
     // Fallback to default rates if not found in dashboard
-    if (shippingCost === undefined) {
-      shippingCost = DEFAULT_COUNTRY_RATES[country] || DEFAULT_COUNTRY_RATES['default'];
-      console.log(`📋 Using default rate for ${country}: $${shippingCost}`);
+    if (!shippingData || !shippingData.isActive) {
+      const defaultCost = DEFAULT_COUNTRY_RATES[country] || DEFAULT_COUNTRY_RATES['default'];
+      console.log(`📋 Using default rate for ${country}: $${defaultCost}`);
+      shippingData = {
+        cost: defaultCost,
+        country: address.country || 'United States',
+        currency: 'USD',
+        estimatedDays: '5-7'
+      };
     } else {
-      console.log(`🎯 Using dashboard rate for ${country}: $${shippingCost}`);
+      console.log(`🎯 Using dashboard rate for ${country}: $${shippingData.cost}`);
     }
     
     // Determine delivery timeframe based on region
@@ -185,11 +252,12 @@ export const calculateCountryShippingCost = async (address, orderTotal = 0) => {
     }
     
     const result = {
-      cost: shippingCost,
-      country: country,
-      method: `International Shipping to ${country.charAt(0).toUpperCase() + country.slice(1)}`,
-      deliveryDays: deliveryDays,
-      reason: `Shipping to ${country}`
+      cost: shippingData.cost,
+      country: shippingData.country,
+      method: `International Shipping to ${shippingData.country}`,
+      deliveryDays: shippingData.estimatedDays || deliveryDays,
+      currency: shippingData.currency || 'USD',
+      reason: `Shipping to ${shippingData.country}`
     };
     
     console.log('✅ Country shipping calculation complete:', result);

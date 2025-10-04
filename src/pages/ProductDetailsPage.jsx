@@ -18,9 +18,6 @@ import {
   Star, 
   Heart, 
   Share2, 
-  Truck, 
-  Shield, 
-  RotateCcw,
   Plus,
   Minus,
   ShoppingCart,
@@ -102,6 +99,9 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
     try {
       setIsLoadingReviews(true);
       console.log('🔄 Loading reviews for product ID:', productId);
+      console.log('🔄 Product ID type:', typeof productId);
+      console.log('🔄 Product ID value:', productId);
+      
       const [reviewsData, ratingData] = await Promise.all([
         getProductReviews(productId),
         calculateProductRating(productId)
@@ -109,12 +109,15 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
       
       console.log('📊 Reviews data received:', reviewsData);
       console.log('📊 Rating data received:', ratingData);
+      console.log('📊 Reviews count:', reviewsData.length);
+      console.log('📊 Average rating:', ratingData.averageRating);
       
       setReviews(reviewsData);
       setProductRating(ratingData);
       console.log('✅ Reviews loaded successfully:', reviewsData.length, 'reviews, Rating:', ratingData.averageRating);
     } catch (error) {
       console.error('❌ Error loading reviews:', error);
+      console.error('❌ Error stack:', error.stack);
       // Set empty state on error
       setReviews([]);
       setProductRating({ averageRating: 0, totalReviews: 0 });
@@ -431,8 +434,8 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-12">
           {/* Product Images */}
           <div className="space-y-4">
             {/* Main Image */}
@@ -448,7 +451,7 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
             </div>
 
             {/* Thumbnail Images */}
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
               {getCurrentImages().map((image, index) => (
                 <button
                   key={index}
@@ -489,6 +492,9 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                 <Badge variant="secondary" className="bg-gray-100 text-gray-800">
                   {product.brand}
                 </Badge>
+                <Badge variant="outline" className="border-blue-200 text-blue-800 bg-blue-50">
+                  {product.category || 'Uncategorized'}
+                </Badge>
                 {product.discount > 0 && (
                   <Badge className="bg-red-100 text-red-800">
                     {product.discount}% OFF
@@ -496,7 +502,7 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                 )}
               </div>
               
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
                 {product.name}
               </h1>
               
@@ -681,32 +687,29 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
 
             {/* Features */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Key Features</h3>
-              <ul className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Key Features</h3>
+                <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                  {product.features.length} feature{product.features.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {product.features.map((feature, index) => (
-                  <li key={index} className="flex items-center space-x-2">
-                    <Check className="h-4 w-4 text-green-600" />
-                    <span className="text-gray-700">{feature}</span>
-                  </li>
+                  <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                    <div className="flex-shrink-0 mt-0.5">
+                      <Check className="h-4 w-4 text-green-600" />
+                    </div>
+                    <span className="text-gray-700 text-sm leading-relaxed">{feature}</span>
+                  </div>
                 ))}
-              </ul>
+              </div>
+              {product.features.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No features listed for this product.</p>
+                </div>
+              )}
             </div>
 
-            {/* Shipping & Warranty */}
-            <div className="space-y-4 pt-6 border-t border-gray-200">
-              <div className="flex items-center space-x-3 text-sm text-gray-600">
-                <Truck className="h-4 w-4" />
-                <span>{product.shipping}</span>
-              </div>
-              <div className="flex items-center space-x-3 text-sm text-gray-600">
-                <Shield className="h-4 w-4" />
-                <span>{product.warranty}</span>
-              </div>
-              <div className="flex items-center space-x-3 text-sm text-gray-600">
-                <RotateCcw className="h-4 w-4" />
-                <span>{product.returnPolicy}</span>
-              </div>
-            </div>
           </div>
         </div>
 

@@ -34,21 +34,64 @@ const transformProduct = (firebaseProduct) => {
     return 'uncategorized';
   };
 
-  // Extract brand from product name if not provided
-  const getBrand = (product) => {
-    if (product.brand && product.brand !== '') return product.brand;
-    
-    // Try to extract brand from product name
-    const name = (product.productname || '').toLowerCase();
-    if (name.includes('iphone') || name.includes('apple')) return 'Apple';
-    if (name.includes('samsung')) return 'Samsung';
-    if (name.includes('google') || name.includes('pixel')) return 'Google';
-    if (name.includes('oneplus')) return 'OnePlus';
-    if (name.includes('xiaomi')) return 'Xiaomi';
-    if (name.includes('huawei')) return 'Huawei';
-    
-    return 'Unknown Brand';
-  };
+// Extract brand from product name if not provided
+const getBrand = (product) => {
+  if (product.brand && product.brand !== '') return product.brand;
+  
+  // Try to extract brand from product name
+  const name = (product.productname || '').toLowerCase();
+  if (name.includes('iphone') || name.includes('apple')) return 'Apple';
+  if (name.includes('samsung')) return 'Samsung';
+  if (name.includes('google') || name.includes('pixel')) return 'Google';
+  if (name.includes('oneplus')) return 'OnePlus';
+  if (name.includes('xiaomi')) return 'Xiaomi';
+  if (name.includes('huawei')) return 'Huawei';
+  
+  return 'Unknown Brand';
+};
+
+// Generate default features based on product category and name
+const generateDefaultFeatures = (product) => {
+  const name = (product.productname || '').toLowerCase();
+  const category = (product.category || '').toLowerCase();
+  const brand = getBrand(product);
+  
+  const defaultFeatures = [];
+  
+  // Brand-specific features
+  if (brand === 'Apple') {
+    defaultFeatures.push('Apple Ecosystem Integration', 'Premium Build Quality', 'iOS Operating System');
+  } else if (brand === 'Samsung') {
+    defaultFeatures.push('Samsung Galaxy Features', 'Android Operating System', 'Premium Display Technology');
+  } else if (brand === 'Google') {
+    defaultFeatures.push('Google Services Integration', 'Pure Android Experience', 'AI-Powered Features');
+  }
+  
+  // Category-specific features
+  if (category.includes('phone') || category.includes('smartphone')) {
+    defaultFeatures.push('High-Resolution Camera', 'Fast Processor', 'Long Battery Life', '5G Connectivity');
+  } else if (category.includes('laptop') || category.includes('computer')) {
+    defaultFeatures.push('High-Performance Processor', 'Large Storage Capacity', 'Long Battery Life', 'Fast Charging');
+  } else if (category.includes('camera')) {
+    defaultFeatures.push('High-Resolution Sensor', 'Optical Image Stabilization', '4K Video Recording', 'Professional Controls');
+  } else if (category.includes('tablet')) {
+    defaultFeatures.push('Large Touch Display', 'Portable Design', 'Long Battery Life', 'Multi-Tasking Capability');
+  } else if (category.includes('audio') || category.includes('headphone')) {
+    defaultFeatures.push('High-Quality Sound', 'Noise Cancellation', 'Wireless Connectivity', 'Comfortable Design');
+  } else if (category.includes('gaming')) {
+    defaultFeatures.push('High-Performance Graphics', 'Fast Response Time', 'Ergonomic Design', 'Customizable Controls');
+  }
+  
+  // Generic features if no specific ones found
+  if (defaultFeatures.length === 0) {
+    defaultFeatures.push('High Quality Materials', 'Premium Design', 'Latest Technology', 'Reliable Performance');
+  }
+  
+  // Add some generic features
+  defaultFeatures.push('1 Year Warranty', 'Customer Support');
+  
+  return defaultFeatures.slice(0, 8); // Limit to 8 features max
+};
 
   // Parse color images from Firebase data
   const getColorImages = (firebaseProduct) => {
@@ -94,7 +137,7 @@ const transformProduct = (firebaseProduct) => {
     description: firebaseProduct.Description || firebaseProduct.description || 'Premium quality product with excellent features',
     inStock: parseInt(firebaseProduct.Quantity) > 0,
     quantity: parseInt(firebaseProduct.Quantity) || 0,
-    features: firebaseProduct.KeyFeatures ? firebaseProduct.KeyFeatures.split(',').map(f => f.trim()).filter(f => f) : ['High Quality', 'Premium Design', 'Latest Technology'],
+    features: firebaseProduct.KeyFeatures ? firebaseProduct.KeyFeatures.split(',').map(f => f.trim()).filter(f => f) : generateDefaultFeatures(firebaseProduct),
     colors: firebaseProduct.Colors ? firebaseProduct.Colors.split(',').map(c => c.trim()).filter(c => c) : [],
     colorImages: getColorImages(firebaseProduct), // New field for color-based images
     // Store the raw Firebase data for color-based images

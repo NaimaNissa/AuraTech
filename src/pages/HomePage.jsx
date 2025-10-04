@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { getCategoriesData } from '../data/products';
 import { getLatestReviews } from '@/lib/reviewService';
+import { getCategoriesWithProductCounts } from '@/lib/categoryService';
 import bannerImage from '/Banner.png';
 
 export default function HomePage({ onNavigate }) {
@@ -63,8 +64,32 @@ export default function HomePage({ onNavigate }) {
   useEffect(() => {
     const loadCategories = async () => {
       try {
+        setLoading(true);
+        console.log('📁 Loading categories from database...');
+        
+        // Try to load from database first
+        try {
+          const categoriesData = await getCategoriesWithProductCounts();
+          if (categoriesData && categoriesData.length > 0) {
+            console.log('✅ Loaded categories from database:', categoriesData);
+            // Map database categories to display format
+            const displayCategories = categoriesData.map(cat => ({
+              icon: cat.icon || getCategoryIcon(cat.name.toLowerCase()),
+              name: cat.name,
+              count: `${cat.count || 0}+ Products`,
+              id: cat.id
+            }));
+            console.log('📁 Mapped display categories:', displayCategories);
+            setCategories(displayCategories);
+            return;
+          }
+        } catch (dbError) {
+          console.log('⚠️ Database categories failed, using fallback:', dbError.message);
+        }
+        
+        // Fallback to static categories
+        console.log('📁 Using fallback static categories...');
         const firebaseCategories = getCategoriesData();
-        // Filter out "All Products" and map to display format
         const displayCategories = firebaseCategories
           .filter(cat => cat.id !== 'all')
           .map(cat => ({
@@ -75,7 +100,7 @@ export default function HomePage({ onNavigate }) {
           }));
         setCategories(displayCategories);
       } catch (error) {
-        console.error('Error loading categories:', error);
+        console.error('❌ Error loading categories:', error);
         // Fallback to default categories
         setCategories([
           { icon: <Smartphone className="h-12 w-12" />, name: "Smartphones", count: "150+ Products" },
@@ -163,34 +188,35 @@ export default function HomePage({ onNavigate }) {
             backgroundColor: '#2D3748' // Fallback color
           }}
         >
-          {/* Light overlay for better text readability */}
-          <div className="absolute inset-0 bg-black/20"></div>
+          {/* Responsive overlay for better text readability */}
+          <div className="absolute inset-0 bg-black/20 md:bg-black/30 lg:bg-black/20"></div>
         </div>
         
-        {/* Content - Right Aligned */}
+        {/* Content - Responsive Layout */}
         <div className="relative z-10 flex items-center min-h-screen">
-          <div className="w-full px-4 sm:px-6 lg:px-8 py-20">
-            <div className="flex justify-end">
-              <div className="text-right max-w-md lg:max-w-lg xl:max-w-xl pr-8 sm:pr-12 lg:pr-16">
-                <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-4 animate-fade-in leading-tight">
-                  <span className="text-white" style={{textShadow: '3px 3px 6px rgba(0,0,0,0.8)'}}>AuraTech</span>
+          <div className="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20">
+            {/* Mobile: Center aligned, Desktop: Right aligned */}
+            <div className="flex justify-center md:justify-end">
+              <div className="text-center md:text-right max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl px-4 sm:px-0 md:pr-8 lg:pr-12 xl:pr-16">
+                <h1 className="text-4xl xs:text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-3 sm:mb-4 animate-fade-in leading-tight">
+                  <span className="text-white" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.8)'}}>AuraTech</span>
                 </h1>
-                <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-8 animate-fade-in leading-tight">
-                  <span className="text-white" style={{textShadow: '3px 3px 6px rgba(0,0,0,0.8)'}}>Expand Your Horizon</span>
+                <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-6 sm:mb-8 animate-fade-in leading-tight">
+                  <span className="text-white" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.8)'}}>Expand Your Horizon</span>
                 </h2>
-                <p className="text-lg sm:text-xl md:text-2xl mb-8 leading-relaxed" style={{color: 'rgba(255, 255, 255, 0.95)', textShadow: '2px 2px 4px rgba(0,0,0,0.8)'}}>
+                <p className="text-base sm:text-lg md:text-xl lg:text-2xl mb-6 sm:mb-8 leading-relaxed px-2 sm:px-0" style={{color: 'rgba(255, 255, 255, 0.95)', textShadow: '1px 1px 3px rgba(0,0,0,0.8)'}}>
                   Discover a refined world of curated tech. Find and define your own aura.
                 </p>
                 <Button 
                   onClick={() => onNavigate('products')}
                   size="lg"
-                  className="text-lg px-8 py-4 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 shadow-xl border border-white/30"
+                  className="text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 shadow-xl border border-white/30 w-full sm:w-auto"
                   style={{background: 'rgba(255, 255, 255, 0.2)', color: '#FFFFFF', backdropFilter: 'blur(15px)'}}
                   onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.3)'}
                   onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
                 >
                   Discover Excellence
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
                 </Button>
               </div>
             </div>
@@ -229,7 +255,7 @@ export default function HomePage({ onNavigate }) {
             </p>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
             {loading ? (
               // Loading skeleton
               Array.from({ length: 6 }).map((_, index) => (
@@ -247,15 +273,17 @@ export default function HomePage({ onNavigate }) {
               categories.map((category, index) => (
                 <Card 
                   key={index} 
-                  className="p-6 text-center hover:shadow-lg transition-all duration-300 cursor-pointer group hover:scale-105"
-                  onClick={() => onNavigate('products')}
+                  className="p-3 sm:p-4 md:p-6 text-center hover:shadow-lg transition-all duration-300 cursor-pointer group hover:scale-105"
+                  onClick={() => onNavigate('products', category.id)}
                 >
-                  <CardContent className="pt-6">
-                    <div className="flex justify-center mb-4 transition-all duration-300" style={{color: '#D4AF37'}}>
-                      {category.icon}
+                  <CardContent className="pt-3 sm:pt-4 md:pt-6">
+                    <div className="flex justify-center mb-2 sm:mb-3 md:mb-4 transition-all duration-300" style={{color: '#D4AF37'}}>
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center">
+                        {category.icon}
+                      </div>
                     </div>
-                    <h3 className="font-semibold mb-1">{category.name}</h3>
-                    <p className="text-sm text-gray-500">{category.count}</p>
+                    <h3 className="font-semibold mb-1 text-sm sm:text-base">{category.name}</h3>
+                    <p className="text-xs sm:text-sm text-gray-500">{category.count}</p>
                   </CardContent>
                 </Card>
               ))
@@ -327,15 +355,15 @@ export default function HomePage({ onNavigate }) {
       <section className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-4">
               What Our Customers Say
             </h2>
-            <p className="text-xl text-gray-600">
+            <p className="text-lg sm:text-xl text-gray-600">
               Don't just take our word for it
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {reviewsLoading ? (
               // Loading skeleton for reviews
               Array.from({ length: 3 }).map((_, index) => (
@@ -352,24 +380,24 @@ export default function HomePage({ onNavigate }) {
               ))
             ) : (
               displayReviews.map((review, index) => (
-                <Card key={index} className="p-6">
-                  <CardContent className="pt-6">
-                    <div className="flex mb-4">
+              <Card key={index} className="p-4 sm:p-6">
+                <CardContent className="pt-4 sm:pt-6">
+                  <div className="flex mb-3 sm:mb-4">
                       {[...Array(review.rating)].map((_, i) => (
-                        <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
-                      ))}
-                    </div>
-                    <p className="text-gray-600 mb-4 italic">"{review.comment}"</p>
-                    <div className="flex justify-between items-center">
-                      <p className="font-semibold text-gray-900">- {review.customerName}</p>
+                      <Star key={i} className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-400 fill-current" />
+                    ))}
+                  </div>
+                    <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4 italic">"{review.comment}"</p>
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                      <p className="font-semibold text-gray-900 text-sm sm:text-base">- {review.customerName}</p>
                       {review.productName && (
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded self-start sm:self-auto">
                           {review.productName}
                         </span>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
+                </CardContent>
+              </Card>
               ))
             )}
           </div>
@@ -377,22 +405,22 @@ export default function HomePage({ onNavigate }) {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 text-white relative" style={{background: 'linear-gradient(90deg, rgb(121, 130, 1) 0%, rgb(184, 134, 11) 50%, rgb(121, 130, 1) 100%)'}}>
+      <section className="py-12 sm:py-16 text-white relative" style={{background: 'linear-gradient(90deg, rgb(121, 130, 1) 0%, rgb(184, 134, 11) 50%, rgb(121, 130, 1) 100%)'}}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">
             Ready to Upgrade Your Tech?
           </h2>
-          <p className="text-xl mb-8" style={{color: 'rgba(255, 255, 255, 0.95)'}}>
+          <p className="text-lg sm:text-xl mb-6 sm:mb-8" style={{color: 'rgba(255, 255, 255, 0.95)'}}>
             Join thousands of satisfied customers worldwide
           </p>
           <Button 
             onClick={() => onNavigate('products')}
             size="lg"
-            className="text-lg px-8 py-4 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 shadow-xl border border-white/30"
+            className="text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 shadow-xl border border-white/30 w-full sm:w-auto"
             style={{background: 'rgba(255, 255, 255, 0.2)', color: '#FFFFFF', backdropFilter: 'blur(10px)'}}
           >
             Begin Your Journey
-            <ArrowRight className="ml-2 h-5 w-5" />
+            <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
         </div>
       </section>

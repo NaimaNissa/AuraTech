@@ -48,6 +48,8 @@ export const createReview = async (reviewData) => {
 export const getProductReviews = async (productId) => {
   try {
     console.log('🔍 Fetching reviews for product:', productId);
+    console.log('🔍 Product ID type:', typeof productId);
+    console.log('🔍 Product ID value:', productId);
     
     if (!productId) {
       console.warn('⚠️ No product ID provided for review fetch');
@@ -55,22 +57,75 @@ export const getProductReviews = async (productId) => {
     }
     
     const reviewsRef = collection(db, 'Feedback');
-    const q = query(
-      reviewsRef, 
-      where('product', '==', productId), // Query by 'product' field instead of 'productId'
-      orderBy('createdAt', 'desc')
-    );
+    console.log('🔍 Querying Feedback collection...');
     
-    const snapshot = await getDocs(q);
+    // Try multiple query approaches to handle different product ID formats
+    let snapshot;
+    let reviews = [];
     
-    const reviews = [];
-    snapshot.forEach((doc) => {
-      const reviewData = { id: doc.id, ...doc.data() };
-      console.log('📄 Raw review data:', reviewData);
-      const transformedReview = transformReview(reviewData);
-      console.log('🔄 Transformed review:', transformedReview);
-      reviews.push(transformedReview);
-    });
+    // First try: Query by 'product' field
+    try {
+      console.log('🔍 Trying query by product field...');
+      const q1 = query(reviewsRef, where('product', '==', productId));
+      snapshot = await getDocs(q1);
+      console.log('🔍 Query by product field executed, snapshot size:', snapshot.size);
+      
+      if (snapshot.size > 0) {
+        snapshot.forEach((doc) => {
+          const reviewData = { id: doc.id, ...doc.data() };
+          console.log('📄 Raw review data (product field):', reviewData);
+          const transformedReview = transformReview(reviewData);
+          reviews.push(transformedReview);
+        });
+      }
+    } catch (error) {
+      console.log('⚠️ Query by product field failed:', error.message);
+    }
+    
+    // Second try: Query by 'productId' field (fallback)
+    if (reviews.length === 0) {
+      try {
+        console.log('🔍 Trying query by productId field...');
+        const q2 = query(reviewsRef, where('productId', '==', productId));
+        snapshot = await getDocs(q2);
+        console.log('🔍 Query by productId field executed, snapshot size:', snapshot.size);
+        
+        if (snapshot.size > 0) {
+          snapshot.forEach((doc) => {
+            const reviewData = { id: doc.id, ...doc.data() };
+            console.log('📄 Raw review data (productId field):', reviewData);
+            const transformedReview = transformReview(reviewData);
+            reviews.push(transformedReview);
+          });
+        }
+      } catch (error) {
+        console.log('⚠️ Query by productId field failed:', error.message);
+      }
+    }
+    
+    // Third try: Query by 'productName' field (fallback)
+    if (reviews.length === 0) {
+      try {
+        console.log('🔍 Trying query by productName field...');
+        const q3 = query(reviewsRef, where('productName', '==', productId));
+        snapshot = await getDocs(q3);
+        console.log('🔍 Query by productName field executed, snapshot size:', snapshot.size);
+        
+        if (snapshot.size > 0) {
+          snapshot.forEach((doc) => {
+            const reviewData = { id: doc.id, ...doc.data() };
+            console.log('📄 Raw review data (productName field):', reviewData);
+            const transformedReview = transformReview(reviewData);
+            reviews.push(transformedReview);
+          });
+        }
+      } catch (error) {
+        console.log('⚠️ Query by productName field failed:', error.message);
+      }
+    }
+    
+    // Sort reviews by creation date (newest first) in JavaScript
+    reviews.sort((a, b) => new Date(b.date) - new Date(a.date));
     
     console.log(`✅ Found ${reviews.length} reviews for product ${productId}`);
     console.log('📋 All transformed reviews:', reviews);
@@ -78,6 +133,7 @@ export const getProductReviews = async (productId) => {
   } catch (error) {
     console.error('❌ Error fetching product reviews:', error);
     console.error('❌ Error details:', error.message);
+    console.error('❌ Error stack:', error.stack);
     // Return empty array instead of throwing to not break the UI
     return [];
   }
@@ -332,6 +388,35 @@ export const getLatestReviews = async (limit = 5) => {
   } catch (error) {
     console.error('❌ Error fetching latest reviews:', error);
     return [];
+  }
+};
+
+// Debug function to create a test review for a specific product
+export const createTestReview = async (productId, productName) => {
+  try {
+    console.log('🧪 Creating test review for product:', productId);
+    
+    const reviewsRef = collection(db, 'Feedback');
+    const testReview = {
+      product: productId, // Store product ID as string
+      Stars: '5', // Store as string to match dashboard structure
+      Feedback: 'This is a test review to verify the review system is working correctly. Great product!', // Store as string
+      customerName: 'Test Customer',
+      customerEmail: 'test@example.com',
+      productName: productName || 'Test Product',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      verified: false,
+      helpful: 0
+    };
+    
+    const docRef = await addDoc(reviewsRef, testReview);
+    console.log('✅ Test review created successfully:', docRef.id);
+    console.log('🧪 Test review data:', testReview);
+    return { id: docRef.id, ...testReview };
+  } catch (error) {
+    console.error('❌ Error creating test review:', error);
+    throw error;
   }
 };
 
