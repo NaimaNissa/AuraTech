@@ -65,6 +65,12 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
         console.log('🔍 Fetching product details for ID:', productId);
         const productData = await getProductById(productId);
         console.log('✅ Product data loaded:', productData);
+        console.log('🔍 Product category details:', {
+          category: productData.category,
+          type: typeof productData.category,
+          length: productData.category?.length,
+          raw: productData.rawData?.category || productData.rawData?.Catergory
+        });
         
         setProduct(productData);
         
@@ -93,6 +99,11 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
 
     fetchProduct();
   }, [productId, currentUser]);
+
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   // Load product reviews
   const loadProductReviews = async (productId) => {
@@ -174,6 +185,123 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
     }
   };
 
+  // Text formatting function
+  const formatText = (text) => {
+    if (!text) return '';
+    
+    // Convert text to HTML with formatting support
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold: **text**
+      .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic: *text*
+      .replace(/\n/g, '<br>') // Line breaks
+      .replace(/•\s*(.*?)(?=\n|$)/g, '<li>$1</li>') // Bullet points: • text
+      .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>'); // Wrap list items in ul
+  };
+
+  // Convert description to bullet points
+  const getFormattedDescription = (description) => {
+    if (!description) return '';
+    
+    // Split by common separators and create bullet points
+    const points = description
+      .split(/[.!?]\s+/)
+      .filter(point => point.trim().length > 0)
+      .map(point => point.trim());
+    
+    return points;
+  };
+
+  // Color palette mapping
+  const getColorPalette = (colorName) => {
+    const colorMap = {
+      'black': '#000000',
+      'white': '#FFFFFF',
+      'silver': '#C0C0C0',
+      'gold': '#FFD700',
+      'rose gold': '#E8B4B8',
+      'space gray': '#4A4A4A',
+      'midnight': '#1C1C1E',
+      'starlight': '#F5F5DC',
+      'blue': '#007AFF',
+      'red': '#FF3B30',
+      'green': '#34C759',
+      'yellow': '#FFCC00',
+      'purple': '#AF52DE',
+      'pink': '#FF2D92',
+      'orange': '#FF9500',
+      'gray': '#8E8E93',
+      'space black': '#1C1C1E',
+      'graphite': '#4A4A4A',
+      'sierra blue': '#5E9DD9',
+      'alpine green': '#4A5D23',
+      'pacific blue': '#1E3A8A',
+      'product red': '#FF3B30',
+      'midnight green': '#004D47',
+      'jet black': '#000000',
+      'matte black': '#2C2C2E',
+      'coral': '#FF7F50',
+      'lavender': '#E6E6FA',
+      'mint': '#98FB98',
+      'peach': '#FFCBA4',
+      'navy': '#000080',
+      'maroon': '#800000',
+      'olive': '#808000',
+      'teal': '#008080',
+      'indigo': '#4B0082',
+      'crimson': '#DC143C',
+      'turquoise': '#40E0D0',
+      'violet': '#8A2BE2',
+      'magenta': '#FF00FF',
+      'cyan': '#00FFFF',
+      'lime': '#00FF00',
+      'brown': '#A52A2A',
+      'beige': '#F5F5DC',
+      'ivory': '#FFFFF0',
+      'cream': '#FFFDD0',
+      'tan': '#D2B48C',
+      'copper': '#B87333',
+      'bronze': '#CD7F32',
+      'platinum': '#E5E4E2',
+      'titanium': '#878681',
+      'steel': '#71797E',
+      'chrome': '#E8E8E8',
+      'brushed': '#C0C0C0',
+      'matte': '#808080',
+      'glossy': '#FFFFFF',
+      'transparent': 'rgba(255, 255, 255, 0.1)',
+      'clear': 'rgba(255, 255, 255, 0.3)'
+    };
+    
+    // Try exact match first
+    const exactMatch = colorMap[colorName.toLowerCase()];
+    if (exactMatch) return exactMatch;
+    
+    // Try partial matches
+    const lowerColorName = colorName.toLowerCase();
+    for (const [key, value] of Object.entries(colorMap)) {
+      if (lowerColorName.includes(key) || key.includes(lowerColorName)) {
+        return value;
+      }
+    }
+    
+    // Default fallback colors based on common patterns
+    if (lowerColorName.includes('black')) return '#000000';
+    if (lowerColorName.includes('white')) return '#FFFFFF';
+    if (lowerColorName.includes('blue')) return '#007AFF';
+    if (lowerColorName.includes('red')) return '#FF3B30';
+    if (lowerColorName.includes('green')) return '#34C759';
+    if (lowerColorName.includes('yellow')) return '#FFCC00';
+    if (lowerColorName.includes('purple')) return '#AF52DE';
+    if (lowerColorName.includes('pink')) return '#FF2D92';
+    if (lowerColorName.includes('orange')) return '#FF9500';
+    if (lowerColorName.includes('gray') || lowerColorName.includes('grey')) return '#8E8E93';
+    if (lowerColorName.includes('silver')) return '#C0C0C0';
+    if (lowerColorName.includes('gold')) return '#FFD700';
+    
+    // Ultimate fallback
+    return '#8E8E93';
+  };
+
   // Get color data from product's colorImages field
   const getColorData = () => {
     if (!product) {
@@ -181,7 +309,8 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
         default: {
           name: 'Default',
           images: ['https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop'],
-          price: 0
+          price: 0,
+          palette: '#8E8E93'
         }
       };
     }
@@ -199,7 +328,8 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
         default: {
           name: 'Default',
           images: [product.image || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop'],
-          price: product.price || 0
+          price: product.price || 0,
+          palette: '#8E8E93'
         }
       };
     }
@@ -213,7 +343,8 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
       colorData[colorKey] = {
         name: color,
         images: [baseImage], // Start with single image, can be expanded in dashboard
-        price: product.price || 0
+        price: product.price || 0,
+        palette: getColorPalette(color) // Add color palette
       };
     });
     
@@ -565,16 +696,13 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                         }`}
                       >
                         <div className="flex items-center gap-2">
+                          {/* Color Palette Swatch */}
+                          <div 
+                            className="w-6 h-6 rounded-full border-2 border-gray-200 shadow-sm"
+                            style={{ backgroundColor: getColorPalette(color) }}
+                            title={`${color} color`}
+                          />
                           <span>{color}</span>
-                          {imageCount > 0 && (
-                            <span className={`text-xs px-2 py-1 rounded-full ${
-                              selectedColor === color
-                                ? 'bg-white bg-opacity-20 text-white'
-                                : 'bg-gray-100 text-gray-600'
-                            }`}>
-                              {imageCount} image{imageCount !== 1 ? 's' : ''}
-                            </span>
-                          )}
                         </div>
                         {selectedColor === color && (
                           <Check className="absolute -top-1 -right-1 h-4 w-4 text-white bg-gray-900 rounded-full" />
@@ -699,7 +827,12 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                     <div className="flex-shrink-0 mt-0.5">
                       <Check className="h-4 w-4 text-green-600" />
                     </div>
-                    <span className="text-gray-700 text-sm leading-relaxed">{feature}</span>
+                    <span 
+                      className="text-gray-700 text-sm leading-relaxed"
+                      dangerouslySetInnerHTML={{ 
+                        __html: formatText(feature) 
+                      }} 
+                    />
                   </div>
                 ))}
               </div>
@@ -720,9 +853,32 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
               <h2 className="text-2xl font-bold text-gray-900 mb-4">
                 Product Description
               </h2>
-              <p className="text-gray-700 leading-relaxed">
-                {product.description}
-              </p>
+              {product.description ? (
+                <div className="text-gray-700 leading-relaxed">
+                  {getFormattedDescription(product.description).length > 1 ? (
+                    <ul className="space-y-2 list-none">
+                      {getFormattedDescription(product.description).map((point, index) => (
+                        <li key={index} className="flex items-start">
+                          <span className="text-blue-600 mr-2 mt-1">•</span>
+                          <span 
+                            dangerouslySetInnerHTML={{ 
+                              __html: formatText(point) 
+                            }} 
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p 
+                      dangerouslySetInnerHTML={{ 
+                        __html: formatText(product.description) 
+                      }} 
+                    />
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-500 italic">No description available</p>
+              )}
             </CardContent>
           </Card>
 

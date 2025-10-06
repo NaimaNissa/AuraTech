@@ -15,22 +15,118 @@ import {
 import { db } from './firebase';
 import { generateSampleColorImages } from './colorImageUtils';
 
+// Cache for category ID to name mapping
+let categoryIdToNameCache = null;
+let categoryCacheExpiry = 0;
+
+// Load category ID to name mapping
+const loadCategoryMapping = async () => {
+  const now = Date.now();
+  if (categoryIdToNameCache && now < categoryCacheExpiry) {
+    return categoryIdToNameCache;
+  }
+  
+  try {
+    console.log('📁 Loading category mapping from database...');
+    const categoriesRef = collection(db, 'categories');
+    const q = query(categoriesRef, where('isActive', '==', true));
+    const snapshot = await getDocs(q);
+    
+    const mapping = {};
+    snapshot.forEach((doc) => {
+      const categoryData = doc.data();
+      mapping[doc.id] = categoryData.name;
+    });
+    
+    categoryIdToNameCache = mapping;
+    categoryCacheExpiry = now + (5 * 60 * 1000); // Cache for 5 minutes
+    
+    console.log('✅ Loaded category mapping:', mapping);
+    console.log('🔍 Category mapping details:', Object.entries(mapping).map(([id, name]) => ({ id, name })));
+    return mapping;
+  } catch (error) {
+    console.error('❌ Error loading category mapping:', error);
+    return {};
+  }
+};
+
 // Transform Firebase product data to match the expected format
 const transformProduct = (firebaseProduct) => {
   // Map Firebase category field - handle both "category" and "Catergory" 
   const getCategory = (product) => {
-    // Check for both possible field names in your database
-    if (product.category && product.category !== '') {
-      // Map "Phones" to "smartphones" for consistency
-      const cat = product.category.toLowerCase();
-      if (cat === 'phones' || cat === 'phone') return 'smartphones';
-      return cat;
+    console.log('🔍 Getting category for product:', {
+      id: product.productID || product.id,
+      name: product.productname || product.name,
+      category: product.category,
+      Catergory: product.Catergory,
+      allFields: Object.keys(product)
+    });
+    
+  // Check for both possible field names in your database
+  if (product.category && product.category !== '' && typeof product.category === 'string') {
+    console.log('✅ Found category field:', product.category);
+    return product.category; // Return as-is, let the mapping function handle it
+  } else {
+    console.log('⚠️ No category field or empty category:', product.category);
+  }
+    
+    // Fallback to other possible field names
+    if (product.Catergory && product.Catergory !== '' && typeof product.Catergory === 'string') {
+      console.log('✅ Found Catergory field:', product.Catergory);
+      return product.Catergory; // Return as-is, let the mapping function handle it
+    } else {
+      console.log('⚠️ No Catergory field or empty:', product.Catergory);
     }
-    if (product.Catergory && product.Catergory !== '') {
-      const cat = product.Catergory.toLowerCase();
-      if (cat === 'phones' || cat === 'phone') return 'smartphones';
-      return cat;
+    
+    // If no valid category found, try to infer from product name
+    const name = (product.productname || product.name || '').toLowerCase();
+    console.log('🔍 Trying to infer category from product name:', name);
+    
+    // More comprehensive category inference
+    if (name.includes('phone') || name.includes('iphone') || name.includes('samsung') || 
+        name.includes('galaxy') || name.includes('pixel') || name.includes('oneplus') ||
+        name.includes('xiaomi') || name.includes('huawei') || name.includes('oppo') ||
+        name.includes('vivo') || name.includes('realme') || name.includes('mobile')) {
+      console.log('✅ Inferred category: smartphones');
+      return 'smartphones';
     }
+    if (name.includes('laptop') || name.includes('macbook') || name.includes('computer') ||
+        name.includes('notebook') || name.includes('ultrabook') || name.includes('gaming laptop')) {
+      console.log('✅ Inferred category: laptops');
+      return 'laptops';
+    }
+    if (name.includes('camera') || name.includes('canon') || name.includes('nikon') ||
+        name.includes('sony') || name.includes('fujifilm') || name.includes('olympus') ||
+        name.includes('panasonic') || name.includes('leica') || name.includes('dslr') ||
+        name.includes('mirrorless') || name.includes('photography')) {
+      console.log('✅ Inferred category: cameras');
+      return 'cameras';
+    }
+    if (name.includes('tablet') || name.includes('ipad') || name.includes('android tablet') ||
+        name.includes('surface') || name.includes('kindle')) {
+      console.log('✅ Inferred category: tablets');
+      return 'tablets';
+    }
+    if (name.includes('headphone') || name.includes('headset') || name.includes('speaker') || 
+        name.includes('audio') || name.includes('sound') || name.includes('earphone') ||
+        name.includes('earbud') || name.includes('airpods') || name.includes('beats') ||
+        name.includes('bose') || name.includes('sony') || name.includes('jbl')) {
+      console.log('✅ Inferred category: audio');
+      return 'audio';
+    }
+    if (name.includes('game') || name.includes('gaming') || name.includes('console') ||
+        name.includes('controller') || name.includes('playstation') || name.includes('xbox') ||
+        name.includes('nintendo') || name.includes('switch') || name.includes('steam')) {
+      console.log('✅ Inferred category: gaming');
+      return 'gaming';
+    }
+    if (name.includes('watch') || name.includes('smartwatch') || name.includes('fitness') ||
+        name.includes('band') || name.includes('tracker') || name.includes('wearable')) {
+      console.log('✅ Inferred category: wearables');
+      return 'wearables';
+    }
+    
+    console.log('⚠️ No valid category found, using default: uncategorized');
     return 'uncategorized';
   };
 
@@ -147,10 +243,43 @@ const generateDefaultFeatures = (product) => {
   };
 };
 
+// Transform product with category mapping
+const transformProductWithCategoryMapping = async (firebaseProduct, categoryMapping) => {
+  const transformed = transformProduct(firebaseProduct);
+  
+  console.log('🔍 TRANSFORMING PRODUCT:', {
+    name: transformed.name,
+    originalCategory: transformed.category,
+    categoryMapping: categoryMapping
+  });
+  
+  // Check if the category is a category ID that needs mapping
+  if (transformed.category && categoryMapping[transformed.category]) {
+    const categoryName = categoryMapping[transformed.category];
+    console.log('🔄 Mapping category ID to name:', transformed.category, '→', categoryName);
+    transformed.category = categoryName.toLowerCase();
+  } else if (transformed.category) {
+    console.log('🔍 Category is not an ID or not found in mapping, keeping as is:', transformed.category);
+  } else {
+    console.log('⚠️ No category found for product:', transformed.name);
+  }
+  
+  console.log('✅ FINAL TRANSFORMED PRODUCT:', {
+    name: transformed.name,
+    finalCategory: transformed.category
+  });
+  
+  return transformed;
+};
+
 // Get all products from Firebase
 export const getAllProducts = async () => {
   try {
     console.log('🔥 Fetching products from Firebase (products collection)...');
+    
+    // Load category mapping
+    const categoryMapping = await loadCategoryMapping();
+    
     // Use the same collection name as the dashboard
     const productsRef = collection(db, 'products');
     const snapshot = await getDocs(productsRef);
@@ -158,11 +287,12 @@ export const getAllProducts = async () => {
     console.log(`📦 Found ${snapshot.size} products in Firebase`);
     
     const products = [];
-    snapshot.forEach((doc) => {
+    for (const doc of snapshot.docs) {
       const productData = { id: doc.id, ...doc.data() };
       console.log('📄 Product data:', productData);
-      products.push(transformProduct(productData));
-    });
+      const transformedProduct = await transformProductWithCategoryMapping(productData, categoryMapping);
+      products.push(transformedProduct);
+    }
     
     console.log('✅ Transformed products:', products);
     return products;
@@ -178,6 +308,9 @@ export const getProductById = async (productId) => {
   try {
     console.log('🔍 Fetching product with ID:', productId);
     
+    // Load category mapping
+    const categoryMapping = await loadCategoryMapping();
+    
     // First try to query by productID field
     const productsRef = collection(db, 'products');
     let q = query(productsRef, where('productID', '==', productId));
@@ -187,7 +320,7 @@ export const getProductById = async (productId) => {
       const doc = snapshot.docs[0];
       const productData = { id: doc.id, ...doc.data() };
       console.log('✅ Found product by productID:', productData);
-      return transformProduct(productData);
+      return await transformProductWithCategoryMapping(productData, categoryMapping);
     }
     
     // If not found by productID, try by document ID
@@ -198,7 +331,7 @@ export const getProductById = async (productId) => {
     if (docSnap.exists()) {
       const productData = { id: docSnap.id, ...docSnap.data() };
       console.log('✅ Found product by document ID:', productData);
-      return transformProduct(productData);
+      return await transformProductWithCategoryMapping(productData, categoryMapping);
     }
     
     console.log('❌ Product not found with ID:', productId);

@@ -60,6 +60,13 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
         
         // Load products and brands from existing system
         const { products: firebaseProducts, brands: firebaseBrands } = await initializeProducts();
+        console.log('✅ Loaded products from Firebase:', firebaseProducts.length);
+        console.log('🔍 Sample products with categories:', firebaseProducts.slice(0, 3).map(p => ({
+          name: p.name,
+          category: p.category,
+          categoryType: typeof p.category,
+          rawData: p.rawData?.category || p.rawData?.Catergory
+        })));
         setProducts(firebaseProducts);
         setBrands(firebaseBrands);
         setFilteredProducts(firebaseProducts);
@@ -70,13 +77,59 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
           const categoriesData = await getActiveCategories();
           if (categoriesData && categoriesData.length > 0) {
             console.log('✅ Loaded categories from database:', categoriesData);
-            // Map database categories to display format
-            const displayCategories = categoriesData.map(cat => ({
-              id: cat.id,
-              name: cat.name,
-              count: 0 // Will be calculated based on products
-            }));
-            setCategories(displayCategories);
+            console.log('🔍 Sample category data:', categoriesData[0]);
+            console.log('🔍 All category IDs:', categoriesData.map(cat => cat.id));
+            console.log('🔍 All category names:', categoriesData.map(cat => cat.name));
+            
+            // Create a mapping of category IDs to names for reference
+            const categoryIdToName = {};
+            categoriesData.forEach(cat => {
+              categoryIdToName[cat.id] = cat.name;
+            });
+            console.log('🗺️ Category ID to Name mapping:', categoryIdToName);
+            
+            // Map database categories to display format and calculate counts
+            const displayCategories = categoriesData.map(cat => {
+              const count = firebaseProducts.filter(product => {
+                const productCategory = product.category?.toLowerCase();
+                const categoryId = cat.id?.toLowerCase();
+                const categoryName = cat.name?.toLowerCase();
+                const rawCategory = product.rawData?.category || product.rawData?.Catergory;
+                
+                console.log('🔍 COUNTING - Product:', product.name, 'Category:', productCategory, 'Raw:', rawCategory, 'Against ID:', categoryId, 'Name:', categoryName);
+                
+                // Check if product category matches category ID or name (same logic as filtering)
+                const matches = productCategory === categoryId || 
+                       productCategory === categoryName ||
+                       (rawCategory && (rawCategory.toLowerCase() === categoryId || rawCategory.toLowerCase() === categoryName)) ||
+                       (productCategory && categoryName && productCategory.includes(categoryName));
+                
+                if (matches) {
+                  console.log('✅ COUNTING MATCH:', product.name, '→', cat.name);
+                }
+                
+                return matches;
+              }).length;
+              
+              console.log('📊 Category count for', cat.name, ':', count);
+              
+              return {
+                id: cat.id,
+                name: cat.name,
+                count: count
+              };
+            });
+            
+            // Add "All Products" option
+            const allCategories = [
+              { id: "all", name: "All Products", count: firebaseProducts.length },
+              ...displayCategories.filter(cat => cat.count > 0) // Only show categories with products
+            ];
+            
+            console.log('✅ Processed categories:', allCategories);
+            console.log('🔍 Sample products with categories:', firebaseProducts.slice(0, 3).map(p => ({ name: p.name, category: p.category })));
+            console.log('🔍 ALL PRODUCTS WITH CATEGORIES:', firebaseProducts.map(p => ({ name: p.name, category: p.category, type: typeof p.category })));
+            setCategories(allCategories);
           } else {
             console.log('⚠️ No categories found, using fallback');
             // Fallback to static categories
@@ -106,11 +159,26 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
 
   useEffect(() => {
     if (initialCategory) {
+      console.log('🏠 Homepage navigation - Setting selected category:', initialCategory);
       setSelectedCategory(initialCategory);
     }
   }, [initialCategory]);
 
   useEffect(() => {
+    console.log('🔄 FILTERING EFFECT TRIGGERED:', {
+      selectedCategory,
+      productsCount: products.length,
+      categoriesCount: categories.length,
+      localSearchQuery
+    });
+    
+    // Don't filter if categories aren't loaded yet
+    if (categories.length === 0 && selectedCategory !== 'all') {
+      console.log('⏳ Waiting for categories to load before filtering...');
+      setFilteredProducts([]);
+      return;
+    }
+    
     let filtered = [...products];
 
     // Filter by search query
@@ -125,42 +193,117 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
     // Filter by category
     if (selectedCategory !== 'all') {
       console.log('🔍 Filtering by category:', selectedCategory);
+      console.log('🔍 Available products:', products.length);
+      console.log('🔍 Available categories:', categories);
+      console.log('🔍 Selected category data:', categories.find(cat => cat.id === selectedCategory));
+      
+      // EMERGENCY DEBUG: Show all products and their categories
+      console.log('🚨 EMERGENCY DEBUG - ALL PRODUCTS WITH CATEGORIES:');
+      products.forEach((product, index) => {
+        console.log(`Product ${index + 1}:`, {
+          name: product.name,
+          category: product.category,
+          categoryType: typeof product.category,
+          categoryLength: product.category?.length,
+          rawCategory: product.rawData?.category || product.rawData?.Catergory,
+          allFields: Object.keys(product).filter(key => key.toLowerCase().includes('categor'))
+        });
+      });
+      
+      console.log('🔍 SELECTED CATEGORY DEBUG:', {
+        selectedCategory,
+        selectedCategoryType: typeof selectedCategory,
+        selectedCategoryLength: selectedCategory?.length,
+        categoriesAvailable: categories.map(cat => ({ id: cat.id, name: cat.name }))
+      });
+      
       filtered = filtered.filter(product => {
-        // Handle both the mapped category and original Firebase category fields
         const productCategory = product.category?.toLowerCase();
         const selectedCategoryLower = selectedCategory.toLowerCase();
         
-        console.log('🔍 Product category:', productCategory, 'Selected:', selectedCategoryLower);
+        console.log('🔍 FILTERING - Product:', product.name, 'Category:', productCategory, 'Type:', typeof productCategory, 'Selected:', selectedCategoryLower);
         
-        // Direct match
-        if (productCategory === selectedCategoryLower) {
-          console.log('✅ Direct category match');
+        // Get the selected category data
+        const selectedCategoryData = categories.find(cat => cat.id === selectedCategory);
+        if (!selectedCategoryData) {
+          console.log('❌ Selected category data not found:', selectedCategory);
+          console.log('🔍 Available categories:', categories.map(cat => ({ id: cat.id, name: cat.name })));
+          return false;
+        }
+        
+        const categoryId = selectedCategoryData.id?.toLowerCase();
+        const categoryName = selectedCategoryData.name?.toLowerCase();
+        
+        console.log('🔍 FILTERING - Checking against:', { categoryId, categoryName, productCategory });
+        
+        // Try multiple matching strategies
+        let matches = false;
+        
+        // Strategy 1: Direct category match (most common case)
+        if (productCategory === categoryId || productCategory === categoryName) {
+          matches = true;
+          console.log('✅ Strategy 1 - Direct match:', product.name);
+        }
+        
+        // Strategy 2: Check raw data fields (for products with category IDs)
+        if (!matches) {
+          const rawCategory = product.rawData?.category || product.rawData?.Catergory;
+          if (rawCategory) {
+            const rawCategoryLower = rawCategory.toLowerCase();
+            if (rawCategoryLower === categoryId || rawCategoryLower === categoryName) {
+              matches = true;
+              console.log('✅ Strategy 2 - Raw data match:', product.name, 'Raw category:', rawCategory);
+            }
+          }
+        }
+        
+        // Strategy 3: Check if product category is the selected category ID (case insensitive)
+        if (!matches && productCategory === selectedCategoryLower) {
+          matches = true;
+          console.log('✅ Strategy 3 - Selected category ID match:', product.name);
+        }
+        
+        // Strategy 4: Check if raw category matches selected category ID (case insensitive)
+        if (!matches) {
+          const rawCategory = product.rawData?.category || product.rawData?.Catergory;
+          if (rawCategory && rawCategory.toLowerCase() === selectedCategoryLower) {
+            matches = true;
+            console.log('✅ Strategy 4 - Raw category ID match:', product.name, 'Raw category:', rawCategory);
+          }
+        }
+        
+        // Strategy 5: Partial match (last resort)
+        if (!matches && productCategory && categoryName && productCategory.includes(categoryName)) {
+          matches = true;
+          console.log('✅ Strategy 5 - Partial match:', product.name);
+        }
+        
+        if (matches) {
+          console.log('✅ FILTERING MATCH:', product.name, 'Category:', productCategory, 'Matches:', { categoryId, categoryName });
           return true;
         }
         
-        // Handle common category mappings
-        const categoryMappings = {
-          'smartphones': ['phone', 'smartphones', 'mobile', 'smartphone'],
-          'cameras': ['camera', 'cameras', 'photography'],
-          'tablets': ['tablet', 'tablets', 'ipad'],
-          'laptops': ['laptop', 'laptops', 'notebook', 'computer'],
-          'audio': ['audio', 'headphones', 'speakers', 'sound'],
-          'gaming': ['gaming', 'game', 'console', 'controller']
-        };
-        
-        // Check if product category matches any of the mapped categories
-        if (categoryMappings[selectedCategoryLower]) {
-          const matches = categoryMappings[selectedCategoryLower].includes(productCategory);
-          if (matches) {
-            console.log('✅ Category mapping match');
-          }
-          return matches;
-        }
-        
-        console.log('❌ No category match');
+        console.log('❌ No category match for:', product.name);
         return false;
       });
       console.log('🔍 Filtered products count:', filtered.length);
+      console.log('🔍 Filtered products:', filtered.map(p => ({ name: p.name, category: p.category })));
+      console.log('🔍 FILTERING COMPLETE - Original count:', products.length, 'Filtered count:', filtered.length);
+      
+      // If no products found, log detailed debugging info and show all products temporarily for debugging
+      if (filtered.length === 0 && selectedCategory !== 'all') {
+        console.log('❌ NO PRODUCTS FOUND for category:', selectedCategory);
+        console.log('🔍 Available categories:', categories.map(cat => ({ id: cat.id, name: cat.name })));
+        console.log('🔍 All products with categories:', products.map(p => ({ 
+          name: p.name, 
+          category: p.category, 
+          rawCategory: p.rawData?.category || p.rawData?.Catergory 
+        })));
+        console.log('🔍 Selected category data:', categories.find(cat => cat.id === selectedCategory));
+        
+        // No products found for this category - this is expected behavior
+        console.log('ℹ️ No products found for category:', selectedCategory);
+      }
     }
 
     // Filter by brand
@@ -194,7 +337,7 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
     });
 
     setFilteredProducts(filtered);
-  }, [products, localSearchQuery, selectedCategory, selectedBrand, selectedPriceRange, sortBy]);
+  }, [products, categories, localSearchQuery, selectedCategory, selectedBrand, selectedPriceRange, sortBy]);
 
   const handleAddToCart = (product) => {
     const success = addItem(product, () => {
@@ -267,14 +410,14 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
         </div>
 
         <div className="space-y-2">
-          <Button 
-            onClick={() => handleAddToCart(product)}
-            disabled={!product.inStock}
-            className="w-full"
-          >
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            {product.inStock ? 'Add to Cart' : 'Out of Stock'}
-          </Button>
+        <Button 
+          onClick={() => handleAddToCart(product)}
+          disabled={!product.inStock}
+          className="w-full"
+        >
+          <ShoppingCart className="h-4 w-4 mr-2" />
+          {product.inStock ? 'Add to Cart' : 'Out of Stock'}
+        </Button>
           
           <Button 
             onClick={() => handleBuyNow(product)}
@@ -338,17 +481,17 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
               </div>
               
               <div className="flex space-x-2">
-                <Button 
+              <Button 
                   onClick={(e) => {
                     e.stopPropagation();
                     handleAddToCart(product);
                   }}
-                  disabled={!product.inStock}
+                disabled={!product.inStock}
                   className="flex-1"
-                >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  {product.inStock ? 'Add to Cart' : 'Out of Stock'}
-                </Button>
+              >
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                {product.inStock ? 'Add to Cart' : 'Out of Stock'}
+              </Button>
                 
                 <Button 
                   onClick={(e) => {
@@ -504,13 +647,39 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
             </Select>
           </div>
 
+          {/* Category Indicator */}
+          {selectedCategory !== 'all' && (
+            <div className="mb-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-500">Filtering by category:</span>
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  {categories.find(cat => cat.id === selectedCategory)?.name || selectedCategory}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedCategory('all')}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  Clear filter
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Results Count */}
           <div className="flex justify-between items-center mb-6">
             <p className="text-gray-600">
               Showing {filteredProducts.length} of {products.length} products
+              {selectedCategory !== 'all' && (
+                <span className="ml-2 text-blue-600">
+                  in {categories.find(cat => cat.id === selectedCategory)?.name || selectedCategory}
+                </span>
+              )}
             </p>
           </div>
         </div>
+
 
         {/* Products Grid/List */}
         {filteredProducts.length === 0 ? (

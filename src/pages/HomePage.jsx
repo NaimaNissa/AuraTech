@@ -72,6 +72,8 @@ export default function HomePage({ onNavigate }) {
           const categoriesData = await getCategoriesWithProductCounts();
           if (categoriesData && categoriesData.length > 0) {
             console.log('✅ Loaded categories from database:', categoriesData);
+            console.log('🔍 Homepage category IDs:', categoriesData.map(cat => cat.id));
+            console.log('🔍 Homepage category names:', categoriesData.map(cat => cat.name));
             // Map database categories to display format
             const displayCategories = categoriesData.map(cat => ({
               icon: cat.icon || getCategoryIcon(cat.name.toLowerCase()),
