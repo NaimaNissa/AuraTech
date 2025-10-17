@@ -118,3 +118,187 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Ensure all input elements have black text */
+input, textarea, select {
+  color: black !important;
+}
+
+/* Ensure input placeholders are visible but not too dark */
+input::placeholder, textarea::placeholder {
+  color: #6b7280 !important;
+}
+
+/* Ensure input text is black when focused */
+input:focus, textarea:focus, select:focus {
+  color: black !important;
+}
+
+/* Mobile Responsiveness Improvements */
+@media (max-width: 640px) {
+  /* Improve touch targets */
+  button, a, input, select, textarea {
+    min-height: 44px;
+  }
+  
+  /* Better spacing for mobile */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* Improve text readability on mobile */
+  body {
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  
+  /* Better mobile navigation */
+  .mobile-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  
+  /* Improve card layouts on mobile */
+  .card {
+    margin: 0.5rem;
+    border-radius: 0.75rem;
+  }
+  
+  /* Better button spacing on mobile */
+  .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .btn-group.horizontal {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+/* Tablet improvements */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  /* Even smaller padding for very small screens */
+  .container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  
+  /* Smaller text for very small screens */
+  h1 {
+    font-size: 1.5rem;
+  }
+  
+  h2 {
+    font-size: 1.25rem;
+  }
+  
+  h3 {
+    font-size: 1.125rem;
+  }
+}
+
+/* Landscape mobile improvements */
+@media (max-width: 896px) and (orientation: landscape) {
+  .hero-section {
+    min-height: 100vh;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+}
+
+/* Mobile banner improvements */
+@media (max-width: 640px) {
+  .hero-banner {
+    min-height: 100vh;
+    background-attachment: scroll; /* Better performance on mobile */
+  }
+  
+  .hero-banner .hero-content {
+    padding: 1rem;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Focus on the robot and smartwatch area on mobile */
+  .hero-banner .absolute.inset-0 {
+    background-size: cover !important;
+    background-position: 30% center !important; /* Focus on left-center where robot is */
+  }
+  
+  .hero-banner h1 {
+    font-size: 2.5rem !important;
+    line-height: 1.1 !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .hero-banner h2 {
+    font-size: 1.25rem !important;
+    line-height: 1.2 !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  .hero-banner p {
+    font-size: 0.875rem !important;
+    line-height: 1.4 !important;
+    margin-bottom: 1.5rem !important;
+  }
+  
+  .hero-banner button {
+    font-size: 0.875rem !important;
+    padding: 0.75rem 1.5rem !important;
+  }
+}
+
+/* Tablet banner improvements */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .hero-banner .absolute.inset-0 {
+    background-size: cover !important;
+    background-position: center !important;
+  }
+}
+
+/* Desktop banner improvements */
+@media (min-width: 1025px) {
+  .hero-banner .absolute.inset-0 {
+    background-size: cover !important;
+    background-position: center !important;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  .hero-banner h1 {
+    font-size: 2rem !important;
+  }
+  
+  .hero-banner h2 {
+    font-size: 1.125rem !important;
+  }
+  
+  .hero-banner p {
+    font-size: 0.8rem !important;
+  }
+  
+  /* Ensure robot is visible on very small screens */
+  .hero-banner .absolute.inset-0 {
+    background-position: 25% center !important; /* Even more focused on robot area */
+  }
+}

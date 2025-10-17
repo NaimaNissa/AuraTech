@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getOrdersByEmail } from '../lib/orderService';
+import { getProductById, getAllProducts } from '../lib/productService';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -33,6 +34,7 @@ export default function OrdersPage({ onNavigate }) {
   useEffect(() => {
     const loadOrders = async () => {
       if (!currentUser?.email) {
+        console.log('❌ No current user email found');
         setLoading(false);
         return;
       }
@@ -41,13 +43,24 @@ export default function OrdersPage({ onNavigate }) {
         setLoading(true);
         setError(null);
         console.log('🔍 Loading orders for user:', currentUser.email);
+        console.log('🔍 Current user object:', currentUser);
         
         const userOrders = await getOrdersByEmail(currentUser.email);
         console.log('📦 Raw orders from Firebase:', userOrders);
+        console.log('📦 Number of orders found:', userOrders.length);
+        console.log('📦 User email being searched:', currentUser.email);
+        
+        // Log each order's email to verify filtering
+        userOrders.forEach((order, index) => {
+          console.log(`📦 Order ${index + 1} email:`, order.Email, 'matches user:', order.Email === currentUser.email);
+        });
         
         // Transform Firebase orders to match UI format
         const transformedOrders = userOrders.map(order => {
           console.log('🔄 Transforming order:', order);
+          console.log('🔄 Order ProductImage field:', order.ProductImage);
+          console.log('🔄 Order productImg field:', order.productImg);
+          console.log('🔄 Order image field:', order.image);
           
           // Parse address if it's a combined string
           const parseAddress = (addressString) => {
@@ -81,12 +94,13 @@ export default function OrdersPage({ onNavigate }) {
             items: [{
               id: order.id,
               name: order.productname || 'Unknown Product',
-              image: order.productImg || order.ProductImage || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop',
+              image: order.productImg || order.ProductImage || order.image || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop',
               price: parseFloat(order.Price || 0),
               quantity: parseInt(order.Quantity || 1),
-              color: order.Color || order.ProductColor || 'Default'
+              color: order.ProductColor || order.Color || 'Default'
             }],
-            shippingAddress: {
+            productColor: order.ProductColor || order.Color || 'Default', // Add product color to order level
+        shippingAddress: {
               name: order.FullName || 'N/A',
               street: parsedAddress.street,
               city: parsedAddress.city,
@@ -101,8 +115,10 @@ export default function OrdersPage({ onNavigate }) {
           };
         });
         
-        setOrders(transformedOrders);
-        console.log('✅ Orders loaded:', transformedOrders.length);
+        // Sort orders by date (latest first)
+        const sortedOrders = transformedOrders.sort((a, b) => new Date(b.date) - new Date(a.date));
+        setOrders(sortedOrders);
+        console.log('✅ Orders loaded and sorted:', sortedOrders.length);
       } catch (error) {
         console.error('❌ Error loading orders:', error);
         console.error('❌ Error details:', error.message, error.code);
@@ -157,6 +173,217 @@ export default function OrdersPage({ onNavigate }) {
   const totalOrders = orders.length;
   const averageOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0;
 
+  // Test function to check products
+  const testProducts = async () => {
+    try {
+      console.log('🧪 Testing products fetch...');
+      const products = await getAllProducts();
+      console.log('🧪 Products fetched:', products.length);
+      console.log('🧪 First few products:', products.slice(0, 3).map(p => ({ name: p.name, image: p.image })));
+    } catch (error) {
+      console.error('🧪 Error fetching products:', error);
+    }
+  };
+
+  // Function to get the correct product image by searching products collection
+  const getProductImage = async (order) => {
+    console.log('🖼️ Getting product image for order:', order.id);
+    console.log('🖼️ Order data:', {
+      productImg: order.productImg,
+      ProductImage: order.ProductImage,
+      image: order.image,
+      productname: order.productname,
+      productColor: order.productColor
+    });
+
+    // First try to get image from order data
+    if (order.productImg && order.productImg !== '' && order.productImg !== 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop') {
+      console.log('✅ Using productImg from order:', order.productImg);
+      return order.productImg;
+    }
+    if (order.ProductImage && order.ProductImage !== '' && order.ProductImage !== 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop') {
+      console.log('✅ Using ProductImage from order:', order.ProductImage);
+      return order.ProductImage;
+    }
+    if (order.image && order.image !== '' && order.image !== 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop') {
+      console.log('✅ Using image from order:', order.image);
+      return order.image;
+    }
+
+    // If no valid image in order, search products collection by name
+    try {
+      console.log('🔍 No valid image in order, searching products collection...');
+      console.log('🔍 Product name:', order.productname);
+      
+      // Get all products and search by name
+      const allProducts = await getAllProducts();
+      console.log('📦 Total products in database:', allProducts.length);
+      
+      // Find product by name (exact match or contains)
+      const matchingProduct = allProducts.find(product => {
+        const orderName = order.productname?.toLowerCase() || '';
+        const productName = product.name?.toLowerCase() || '';
+        
+        // Try exact match first
+        if (orderName === productName) {
+          console.log('✅ Exact name match found:', product.name);
+          return true;
+        }
+        
+        // Try partial match (order name contains product name or vice versa)
+        if (orderName.includes(productName) || productName.includes(orderName)) {
+          console.log('✅ Partial name match found:', product.name);
+          return true;
+        }
+        
+        return false;
+      });
+      
+      if (matchingProduct && matchingProduct.image) {
+        console.log('✅ Found matching product:', matchingProduct.name);
+        console.log('✅ Product image:', matchingProduct.image);
+        return matchingProduct.image;
+      }
+      
+      console.log('❌ No matching product found for:', order.productname);
+      
+    } catch (error) {
+      console.log('❌ Could not search products collection:', error);
+    }
+
+    // Fallback to generic image
+    console.log('⚠️ Using fallback image for order:', order.id);
+    return 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop';
+  };
+
+  // Handle view details
+  const handleViewDetails = (order) => {
+    console.log('📋 Viewing details for order:', order.id);
+    
+    // Create a detailed order view modal or navigate to details page
+    const orderDetails = {
+      orderId: order.id,
+      date: order.date,
+      status: order.status,
+      items: order.items,
+      total: order.total,
+      shippingCost: order.shippingCost,
+      shippingAddress: order.shippingAddress,
+      trackingNumber: order.trackingNumber,
+      estimatedDelivery: order.estimatedDelivery,
+      actualDelivery: order.actualDelivery
+    };
+    
+    // For now, show an alert with order details
+    // In a real app, this would open a modal or navigate to a details page
+    alert(`Order Details:\n\nOrder ID: ${order.id}\nDate: ${new Date(order.date).toLocaleDateString()}\nStatus: ${order.status}\nTotal: $${order.total.toFixed(2)}\n\nItems:\n${order.items.map(item => `• ${item.name} (${item.quantity}x) - $${item.price.toFixed(2)} each`).join('\n')}\n\nShipping Address:\n${order.shippingAddress.name}\n${order.shippingAddress.street}\n${order.shippingAddress.city}, ${order.shippingAddress.state} ${order.shippingAddress.zipCode}\n${order.shippingAddress.country}`);
+  };
+
+  // Handle download invoice
+  const handleDownloadInvoice = (order) => {
+    console.log('📄 Downloading invoice for order:', order.id);
+    
+    // Create invoice content
+    const invoiceContent = `
+AuraTech Invoice
+================
+
+Order ID: ${order.id}
+Date: ${new Date(order.date).toLocaleDateString()}
+Status: ${order.status.toUpperCase()}
+
+BILLING INFORMATION:
+${order.shippingAddress.name}
+${order.shippingAddress.street}
+${order.shippingAddress.city}, ${order.shippingAddress.state} ${order.shippingAddress.zipCode}
+${order.shippingAddress.country}
+
+ORDER ITEMS:
+${order.items.map(item => `
+• ${item.name}
+  Color: ${item.color}
+  Quantity: ${item.quantity}
+  Price: $${item.price.toFixed(2)} each
+  Subtotal: $${(item.price * item.quantity).toFixed(2)}
+`).join('')}
+
+ORDER SUMMARY:
+Subtotal: $${(order.total - (order.shippingCost || 0)).toFixed(2)}
+Shipping: $${(order.shippingCost || 0).toFixed(2)}
+TOTAL: $${order.total.toFixed(2)}
+
+Thank you for choosing AuraTech!
+    `.trim();
+    
+    // Create and download the invoice file
+    const blob = new Blob([invoiceContent], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `AuraTech-Invoice-${order.id}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    console.log('✅ Invoice downloaded successfully');
+  };
+
+  // Product Image Component
+  const ProductImage = ({ order }) => {
+    const [imageSrc, setImageSrc] = useState('https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
+
+    useEffect(() => {
+      const loadImage = async () => {
+        setLoading(true);
+        setError(false);
+        try {
+          console.log('🖼️ Loading image for order:', order.id);
+          console.log('🖼️ Order product name:', order.productname);
+          const image = await getProductImage(order);
+          console.log('🖼️ Got image from getProductImage:', image);
+          console.log('🖼️ Setting image source to:', image);
+          setImageSrc(image);
+          console.log('🖼️ Image source set successfully');
+        } catch (error) {
+          console.error('❌ Error loading product image:', error);
+          setError(true);
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadImage();
+    }, [order.id, order.productname]); // Add dependencies to trigger re-render
+
+    console.log('🖼️ ProductImage component render - imageSrc:', imageSrc, 'loading:', loading);
+
+    if (loading) {
+      return (
+        <div className="w-16 h-16 bg-gray-200 rounded-md flex items-center justify-center">
+          <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+        </div>
+      );
+    }
+
+    return (
+      <img 
+        src={imageSrc} 
+        alt={order.items[0]?.name || 'Product'}
+        className="w-16 h-16 object-cover rounded-md"
+        onError={(e) => {
+          console.log('❌ Image failed to load:', imageSrc);
+          setError(true);
+          e.target.src = 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop';
+        }}
+        onLoad={() => {
+          console.log('✅ Image loaded successfully:', imageSrc);
+        }}
+      />
+    );
+  };
+
   const OrderCard = ({ order }) => (
     <Card className="mb-4">
       <CardHeader className="pb-3">
@@ -188,7 +415,7 @@ export default function OrdersPage({ onNavigate }) {
               <div className="flex justify-between border-t pt-1 mt-2">
                 <span className="font-semibold">Total:</span>
                 <span className="text-lg font-bold" style={{color: 'oklch(0.3 0.1 70)'}}>
-                  ${order.total.toFixed(2)}
+              ${order.total.toFixed(2)}
                 </span>
               </div>
             </div>
@@ -204,14 +431,7 @@ export default function OrdersPage({ onNavigate }) {
           </h5>
           {order.items.map((item, index) => (
             <div key={index} className="flex items-center gap-3 p-3 rounded-lg border" style={{backgroundColor: 'oklch(0.98 0.05 70)'}}>
-              <img 
-                src={item.image} 
-                alt={item.name}
-                className="w-16 h-16 object-cover rounded-md"
-                onError={(e) => {
-                  e.target.src = 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop';
-                }}
-              />
+              <ProductImage order={order} />
               <div className="flex-1">
                 <h4 className="font-medium" style={{color: 'oklch(0.3 0.1 70)'}}>
                   {item.name}
@@ -302,6 +522,7 @@ export default function OrdersPage({ onNavigate }) {
             variant="outline" 
             size="sm"
             className="flex items-center gap-2"
+            onClick={() => handleViewDetails(order)}
           >
             <Eye className="h-4 w-4" />
             View Details
@@ -330,6 +551,7 @@ export default function OrdersPage({ onNavigate }) {
             variant="outline" 
             size="sm"
             className="flex items-center gap-2"
+            onClick={() => handleDownloadInvoice(order)}
           >
             <Download className="h-4 w-4" />
             Invoice
@@ -402,19 +624,28 @@ export default function OrdersPage({ onNavigate }) {
         <div className="mb-8">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold mb-2" style={{color: 'oklch(0.3 0.1 70)'}}>
-                My Orders
-              </h1>
-              <p className="text-lg" style={{color: 'oklch(0.5 0.05 70)'}}>
-                Track and manage your order history
-              </p>
-            </div>
-            <Button
-              onClick={() => {
-                setLoading(true);
-                setError(null);
-                // Trigger reload by updating a dependency
-                const loadOrders = async () => {
+          <h1 className="text-3xl font-bold mb-2" style={{color: 'oklch(0.3 0.1 70)'}}>
+            My Orders
+          </h1>
+          <p className="text-lg" style={{color: 'oklch(0.5 0.05 70)'}}>
+            Track and manage your order history
+          </p>
+        </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={testProducts}
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                Test Products
+              </Button>
+              <Button
+                onClick={() => {
+                  setLoading(true);
+                  setError(null);
+                  // Trigger reload by updating a dependency
+                  const loadOrders = async () => {
                   try {
                     const userOrders = await getOrdersByEmail(currentUser.email);
                     console.log('🔄 Refreshed orders:', userOrders.length);
@@ -446,11 +677,12 @@ export default function OrdersPage({ onNavigate }) {
                         items: [{
                           id: order.id,
                           name: order.productname || 'Unknown Product',
-                          image: order.productImg || order.ProductImage || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop',
+                          image: order.productImg || order.ProductImage || order.image || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop',
                           price: parseFloat(order.Price || 0),
                           quantity: parseInt(order.Quantity || 1),
-                          color: order.Color || order.ProductColor || 'Default'
+                          color: order.ProductColor || order.Color || 'Default'
                         }],
+                        productColor: order.ProductColor || order.Color || 'Default', // Add product color to order level
                         shippingAddress: {
                           name: order.FullName || 'N/A',
                           street: parsedAddress.street,
@@ -466,7 +698,9 @@ export default function OrdersPage({ onNavigate }) {
                       };
                     });
                     
-                    setOrders(transformedOrders);
+                    // Sort orders by date (latest first)
+                    const sortedOrders = transformedOrders.sort((a, b) => new Date(b.date) - new Date(a.date));
+                    setOrders(sortedOrders);
                   } catch (error) {
                     console.error('❌ Error refreshing orders:', error);
                     setError(`Failed to refresh orders: ${error.message || 'Please try again.'}`);
@@ -474,20 +708,21 @@ export default function OrdersPage({ onNavigate }) {
                     setLoading(false);
                   }
                 };
-                loadOrders();
-              }}
-              variant="outline"
-              size="sm"
-              disabled={loading}
-              className="flex items-center gap-2"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Package className="h-4 w-4" />
-              )}
-              Refresh
-            </Button>
+                  loadOrders();
+                }}
+                variant="outline"
+                size="sm"
+                disabled={loading}
+                className="flex items-center gap-2"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Package className="h-4 w-4" />
+                )}
+                Refresh
+              </Button>
+            </div>
           </div>
         </div>
 

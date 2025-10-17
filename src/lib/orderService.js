@@ -19,10 +19,48 @@ const generateOrderId = () => {
   return `ORD-${timestamp}-${random}`.toUpperCase();
 };
 
+// Create notification for new order
+const createOrderNotification = async (orderData) => {
+  try {
+    console.log('🔔 Creating order notification for:', orderData.OrderID);
+    
+    const notification = {
+      type: 'new_order',
+      priority: 'high',
+      title: 'New Order Received',
+      message: `New order #${orderData.OrderID} from ${orderData.FullName}`,
+      details: {
+        orderId: orderData.OrderID,
+        customerName: orderData.FullName,
+        customerEmail: orderData.Email,
+        totalAmount: orderData.TotalPrice,
+        productName: orderData.productname,
+        quantity: orderData.Quantity,
+        shippingAddress: orderData.Address
+      },
+      actionUrl: '/orders',
+      icon: '🛒',
+      color: '#10B981', // Green for new orders
+      isRead: false,
+      createdAt: new Date()
+    };
+
+    const notificationsRef = collection(db, 'notifications');
+    await addDoc(notificationsRef, notification);
+    
+    console.log('✅ Order notification created successfully');
+  } catch (error) {
+    console.error('⚠️ Failed to create order notification:', error);
+    // Don't fail the order creation if notification fails
+  }
+};
+
 // Create a new order
 export const createOrder = async (orderData) => {
   try {
     console.log('🔄 Creating order with data:', orderData);
+    console.log('🔄 ProductImage being saved:', orderData.productImage);
+    console.log('🔄 ProductColor being saved:', orderData.productColor);
     
     // Validate required fields
     if (!orderData.fullName || !orderData.email || !orderData.address || !orderData.productName) {
@@ -41,6 +79,8 @@ export const createOrder = async (orderData) => {
       productname: orderData.productName,
       Quantity: orderData.quantity.toString(),
       Price: orderData.price.toString(),
+      productImg: orderData.productImage || '', // Save product image
+      ProductColor: orderData.productColor || 'Default', // Save product color
       ShippingCost: orderData.shippingCost?.toString() || '0',
       TotalPrice: orderData.totalPrice.toString(),
       Status: 'pending',
@@ -118,6 +158,16 @@ export const createOrder = async (orderData) => {
     } catch (emailError) {
       console.error('⚠️ Failed to send order confirmation email:', emailError);
       // Don't fail the order creation if email fails
+    }
+    
+    // Create notification for admin (non-blocking)
+    try {
+      console.log('🔔 Creating admin notification...');
+      await createOrderNotification(order);
+      console.log('✅ Admin notification created');
+    } catch (notificationError) {
+      console.error('⚠️ Failed to create admin notification:', notificationError);
+      // Don't fail the order creation if notification fails
     }
     
     console.log('✅ Order created successfully:', orderId);

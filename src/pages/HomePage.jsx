@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '../components/ui/button';
+import { Card, CardContent } from '../components/ui/card';
 import { 
   Smartphone, 
   Laptop, 
@@ -17,9 +17,8 @@ import {
   Loader2
 } from 'lucide-react';
 import { getCategoriesData } from '../data/products';
-import { getLatestReviews } from '@/lib/reviewService';
-import { getCategoriesWithProductCounts } from '@/lib/categoryService';
-import bannerImage from '/Banner.png';
+import { getLatestReviews } from '../lib/reviewService';
+import { getCategoriesWithProductCounts } from '../lib/categoryService';
 
 export default function HomePage({ onNavigate }) {
   const [categories, setCategories] = useState([]);
@@ -179,46 +178,47 @@ export default function HomePage({ onNavigate }) {
   return (
     <div className="min-h-screen">
       {/* Hero Section with New Banner */}
-      <section className="text-white relative overflow-hidden min-h-screen -mt-16 pt-16">
+      <section className="hero-banner text-white relative overflow-hidden -mt-16 pt-16" style={{minHeight: '100vh'}}>
         {/* Banner Background */}
         <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          className="absolute inset-0 bg-center bg-no-repeat"
           style={{
-            backgroundImage: `url(${bannerImage})`,
-            backgroundSize: 'cover',
+            backgroundImage: `url('/Banner.png')`,
+            backgroundSize: 'contain',
             backgroundPosition: 'center',
-            backgroundColor: '#2D3748' // Fallback color
+            backgroundColor: '#2D5016', // Fallback forest green
+            backgroundBlendMode: 'normal'
           }}
         >
           {/* Responsive overlay for better text readability */}
-          <div className="absolute inset-0 bg-black/20 md:bg-black/30 lg:bg-black/20"></div>
+          <div className="absolute inset-0 bg-black/30 sm:bg-black/25 md:bg-black/20"></div>
         </div>
         
         {/* Content - Responsive Layout */}
-        <div className="relative z-10 flex items-center min-h-screen">
-          <div className="w-full px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-20">
+        <div className="hero-content relative z-10 flex items-center justify-center md:justify-end" style={{minHeight: '100vh'}}>
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 md:py-16 lg:py-20">
             {/* Mobile: Center aligned, Desktop: Right aligned */}
             <div className="flex justify-center md:justify-end">
-              <div className="text-center md:text-right max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl px-4 sm:px-0 md:pr-8 lg:pr-12 xl:pr-16">
-                <h1 className="text-4xl xs:text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold mb-3 sm:mb-4 animate-fade-in leading-tight">
+              <div className="text-center md:text-right w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-2 sm:mb-3 md:mb-4 animate-fade-in leading-tight">
                   <span className="text-white" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.8)'}}>AuraTech</span>
                 </h1>
-                <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-6 sm:mb-8 animate-fade-in leading-tight">
+                <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold mb-4 sm:mb-6 md:mb-8 animate-fade-in leading-tight">
                   <span className="text-white" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.8)'}}>Expand Your Horizon</span>
                 </h2>
-                <p className="text-base sm:text-lg md:text-xl lg:text-2xl mb-6 sm:mb-8 leading-relaxed px-2 sm:px-0" style={{color: 'rgba(255, 255, 255, 0.95)', textShadow: '1px 1px 3px rgba(0,0,0,0.8)'}}>
+                <p className="text-sm sm:text-base md:text-lg lg:text-xl mb-4 sm:mb-6 md:mb-8 leading-relaxed px-2 sm:px-0" style={{color: 'rgba(255, 255, 255, 0.95)', textShadow: '1px 1px 3px rgba(0,0,0,0.8)'}}>
                   Discover a refined world of curated tech. Find and define your own aura.
                 </p>
                 <Button 
                   onClick={() => onNavigate('products')}
                   size="lg"
-                  className="text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 shadow-xl border border-white/30 w-full sm:w-auto"
+                  className="text-sm sm:text-base md:text-lg px-4 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 rounded-full font-semibold transition-all duration-300 transform hover:scale-105 shadow-xl border border-white/30 w-full sm:w-auto"
                   style={{background: 'rgba(255, 255, 255, 0.2)', color: '#FFFFFF', backdropFilter: 'blur(15px)'}}
                   onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.3)'}
                   onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.2)'}
                 >
                   Discover Excellence
-                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
+                  <ArrowRight className="ml-2 h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
                 </Button>
               </div>
             </div>
@@ -326,27 +326,77 @@ export default function HomePage({ onNavigate }) {
                 </div>
               </div>
             </div>
-            <div className="rounded-xl p-8 shadow-sm border" style={{background: 'linear-gradient(135deg, #FEFDF8 0%, #FDF9E8 100%)', borderColor: '#E6D200'}}>
-              <div className="text-center">
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">Why Choose Us?</h3>
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <div className="text-3xl font-bold" style={{color: '#D4AF37'}}>10K+</div>
-                    <div className="text-gray-600">Happy Customers</div>
-                  </div>
-                  <div>
-                    <div className="text-3xl font-bold" style={{color: '#E6D200'}}>1000+</div>
-                    <div className="text-gray-600">Products</div>
-                  </div>
-                  <div>
-                    <div className="text-3xl font-bold" style={{color: '#B8860B'}}>150+</div>
-                    <div className="text-gray-600">Countries</div>
-                  </div>
-                  <div>
-                    <div className="text-3xl font-bold" style={{color: '#D4AF37'}}>99%</div>
-                    <div className="text-gray-600">Satisfaction</div>
-                  </div>
+            <div className="relative">
+              {/* Laptop Image with Website Preview */}
+              <div className="relative rounded-xl overflow-hidden shadow-2xl transform hover:scale-105 transition-transform duration-300">
+                {/* Laptop Frame */}
+                <div className="relative bg-gray-800 rounded-t-lg p-4">
+                  <div className="bg-gray-700 rounded-sm h-2 w-16 mx-auto mb-2"></div>
+                  <div className="bg-gray-700 rounded-sm h-1 w-8 mx-auto"></div>
                 </div>
+                
+                {/* Laptop Screen */}
+                <div className="relative bg-white rounded-b-lg overflow-hidden" style={{aspectRatio: '16/10'}}>
+                  {/* Website Preview */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-100">
+                    {/* Browser Header */}
+                    <div className="bg-gray-200 h-8 flex items-center px-3 space-x-2">
+                      <div className="w-3 h-3 bg-red-400 rounded-full"></div>
+                      <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+                      <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+                      <div className="bg-white rounded px-2 py-1 text-xs text-gray-600 ml-4 flex-1 text-center">
+                        auratech.com
+                      </div>
+                    </div>
+                    
+                    {/* Website Content Preview */}
+                    <div className="p-4 space-y-3">
+                      {/* Header */}
+                      <div className="h-4 bg-gradient-to-r from-yellow-400 to-yellow-500 rounded"></div>
+                      
+                      {/* Navigation */}
+                      <div className="flex space-x-2">
+                        <div className="h-2 bg-gray-300 rounded w-16"></div>
+                        <div className="h-2 bg-gray-300 rounded w-20"></div>
+                        <div className="h-2 bg-gray-300 rounded w-14"></div>
+                        <div className="h-2 bg-gray-300 rounded w-18"></div>
+                      </div>
+                      
+                      {/* Hero Section */}
+                      <div className="space-y-2">
+                        <div className="h-3 bg-gray-400 rounded w-3/4"></div>
+                        <div className="h-3 bg-gray-400 rounded w-1/2"></div>
+                        <div className="h-2 bg-gray-300 rounded w-2/3"></div>
+                      </div>
+                      
+                      {/* Product Cards */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-white rounded p-2 shadow-sm">
+                          <div className="h-8 bg-gray-200 rounded mb-1"></div>
+                          <div className="h-2 bg-gray-300 rounded w-3/4"></div>
+                        </div>
+                        <div className="bg-white rounded p-2 shadow-sm">
+                          <div className="h-8 bg-gray-200 rounded mb-1"></div>
+                          <div className="h-2 bg-gray-300 rounded w-3/4"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Glare Effect */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/20 to-transparent pointer-events-none"></div>
+                </div>
+                
+                {/* Laptop Base */}
+                <div className="bg-gray-800 h-2 rounded-b-lg"></div>
+              </div>
+              
+              {/* Floating Elements */}
+              <div className="absolute -top-4 -right-4 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg animate-bounce">
+                <span className="text-white text-sm">✨</span>
+              </div>
+              <div className="absolute -bottom-4 -left-4 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                <span className="text-white text-xs">💻</span>
               </div>
             </div>
           </div>

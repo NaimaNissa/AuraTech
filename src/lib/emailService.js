@@ -4,6 +4,7 @@ import emailjs from '@emailjs/browser';
 const EMAILJS_SERVICE_ID = 'service_auratech';
 const EMAILJS_TEMPLATE_ID = 'template_order_confirmation';
 const EMAILJS_LOGIN_TEMPLATE_ID = 'template_login_welcome';
+const EMAILJS_SIGNUP_NOTIFICATION_TEMPLATE_ID = 'template_signup_notification';
 const EMAILJS_PUBLIC_KEY = 'your_public_key_here';
 
 // Initialize EmailJS
@@ -616,6 +617,312 @@ Reply directly to: ${contactData.email}
   } catch (error) {
     console.error('❌ Error sending contact email:', error);
     throw error;
+  }
+};
+
+// Send admin notification when new user signs up
+export const sendSignupNotificationEmail = async (userData) => {
+  try {
+    console.log('📧 Sending signup notification to admin for new user:', userData.email);
+    
+    const signupTime = new Date().toLocaleString();
+    const userAgent = navigator.userAgent;
+    const isMobile = /Mobile|Android|iPhone|iPad/.test(userAgent);
+    const deviceType = isMobile ? 'Mobile' : 'Desktop';
+    
+    // Prepare email template parameters
+    const templateParams = {
+      to_email: 'auratechs30@gmail.com', // Admin email
+      admin_name: 'AuraTech Admin',
+      new_user_name: userData.displayName || userData.email.split('@')[0],
+      new_user_email: userData.email,
+      new_user_uid: userData.uid,
+      signup_time: signupTime,
+      device_type: deviceType,
+      user_agent: userAgent,
+      company_name: 'AuraTech',
+      website_url: window.location.origin,
+      admin_email: 'auratechs30@gmail.com'
+    };
+
+    // Send email using EmailJS
+    const response = await emailjs.send(
+      EMAILJS_SERVICE_ID,
+      EMAILJS_SIGNUP_NOTIFICATION_TEMPLATE_ID,
+      templateParams
+    );
+
+    console.log('✅ Signup notification email sent successfully:', response);
+    return response;
+  } catch (error) {
+    console.error('❌ Error sending signup notification email:', error);
+    // Don't throw error to prevent signup failure if email fails
+    return { success: false, error: error.message };
+  }
+};
+
+// Send signup notification email (simple version with fallback)
+export const sendSignupNotificationEmailSimple = async (userData) => {
+  try {
+    console.log('📧 Preparing signup notification email for admin...');
+    
+    const signupTime = new Date().toLocaleString();
+    const userAgent = navigator.userAgent;
+    const isMobile = /Mobile|Android|iPhone|iPad/.test(userAgent);
+    const deviceType = isMobile ? 'Mobile' : 'Desktop';
+    const browserInfo = userAgent.includes('Chrome') ? 'Chrome' : 
+                       userAgent.includes('Firefox') ? 'Firefox' : 
+                       userAgent.includes('Safari') ? 'Safari' : 
+                       userAgent.includes('Edge') ? 'Edge' : 'Unknown';
+    
+    const subject = `🎉 New User Signup - ${userData.displayName || userData.email.split('@')[0]} - AuraTech`;
+    
+    const body = `
+Dear AuraTech Admin,
+
+🎉 GREAT NEWS! A new user has just signed up to your website!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 NEW USER DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Name: ${userData.displayName || 'Not provided'}
+Email: ${userData.email}
+User ID: ${userData.uid}
+Signup Time: ${signupTime}
+Device: ${deviceType} (${browserInfo})
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 SIGNUP STATISTICS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• Total Users: +1 (Check your Firebase console for exact count)
+• Signup Date: ${new Date().toLocaleDateString()}
+• Signup Time: ${new Date().toLocaleTimeString()}
+• Platform: ${deviceType}
+• Browser: ${browserInfo}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔗 QUICK ACTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• View User in Firebase: https://console.firebase.google.com/project/auratech-f8365/authentication/users
+• Send Welcome Email: ${userData.email}
+• View Website: ${window.location?.origin || 'https://auratech.com'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📈 GROWTH TRACKING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This user can now:
+✅ Browse products
+✅ Add items to cart
+✅ Place orders
+✅ Track order history
+✅ Leave product reviews
+✅ Contact support
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 NEXT STEPS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Monitor their activity in Firebase Analytics
+2. Check if they make any purchases
+3. Consider sending a personalized welcome email
+4. Track their engagement with your products
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔧 TECHNICAL DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+User Agent: ${userAgent}
+IP Address: [Not available in client-side]
+Referrer: ${document.referrer || 'Direct'}
+Website URL: ${window.location?.origin || 'https://auratech.com'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Keep growing your AuraTech community! 🚀
+
+Best regards,
+AuraTech Notification System
+auratechs30@gmail.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This is an automated notification sent when a new user signs up.
+Signup Time: ${signupTime} | User: ${userData.email}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    `.trim();
+
+    const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 0; background: #f5f5f5; }
+        .container { background: white; margin: 20px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 28px; font-weight: bold; }
+        .header p { margin: 10px 0 0 0; font-size: 16px; opacity: 0.9; }
+        .content { padding: 30px; }
+        .section { margin: 25px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea; }
+        .section h3 { margin: 0 0 15px 0; color: #333; font-size: 18px; }
+        .user-details { background: #e8f4fd; border-left-color: #2196F3; }
+        .statistics { background: #f0f8e8; border-left-color: #4CAF50; }
+        .actions { background: #fff3e0; border-left-color: #FF9800; }
+        .growth { background: #f3e5f5; border-left-color: #9C27B0; }
+        .next-steps { background: #e3f2fd; border-left-color: #03A9F4; }
+        .technical { background: #fce4ec; border-left-color: #E91E63; }
+        .quick-links { text-align: center; margin: 25px 0; }
+        .link-button { display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 8px; font-weight: bold; transition: background 0.3s; }
+        .link-button:hover { background: #5a6fd8; }
+        .footer { background: #f8f9fa; padding: 25px; text-align: center; color: #666; border-top: 1px solid #e0e0e0; }
+        .divider { height: 2px; background: linear-gradient(90deg, #667eea, #764ba2); margin: 20px 0; border-radius: 1px; }
+        .emoji { font-size: 18px; }
+        .highlight { background: #fff3cd; padding: 8px 12px; border-radius: 4px; border: 1px solid #ffeaa7; margin: 10px 0; }
+        .user-info { background: white; padding: 15px; border-radius: 6px; margin: 10px 0; }
+        .stat-item { display: flex; justify-content: space-between; margin: 8px 0; padding: 5px 0; border-bottom: 1px solid #eee; }
+        .stat-label { font-weight: bold; color: #555; }
+        .stat-value { color: #333; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🎉 New User Signup!</h1>
+          <p>Your AuraTech community is growing</p>
+        </div>
+        
+        <div class="content">
+          <div class="section user-details">
+            <h3>👤 New User Details</h3>
+            <div class="user-info">
+              <div class="stat-item">
+                <span class="stat-label">Name:</span>
+                <span class="stat-value">${userData.displayName || 'Not provided'}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Email:</span>
+                <span class="stat-value">${userData.email}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">User ID:</span>
+                <span class="stat-value">${userData.uid}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Signup Time:</span>
+                <span class="stat-value">${signupTime}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Device:</span>
+                <span class="stat-value">${deviceType} (${browserInfo})</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="section statistics">
+            <h3>📊 Signup Statistics</h3>
+            <div class="stat-item">
+              <span class="stat-label">Total Users:</span>
+              <span class="stat-value">+1 (Check Firebase for exact count)</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Signup Date:</span>
+              <span class="stat-value">${new Date().toLocaleDateString()}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Signup Time:</span>
+              <span class="stat-value">${new Date().toLocaleTimeString()}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Platform:</span>
+              <span class="stat-value">${deviceType}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Browser:</span>
+              <span class="stat-value">${browserInfo}</span>
+            </div>
+          </div>
+          
+          <div class="section actions">
+            <h3>🔗 Quick Actions</h3>
+            <div class="quick-links">
+              <a href="https://console.firebase.google.com/project/auratech-f8365/authentication/users" class="link-button" target="_blank">View in Firebase</a>
+              <a href="mailto:${userData.email}" class="link-button">Send Welcome Email</a>
+              <a href="${window.location?.origin || 'https://auratech.com'}" class="link-button" target="_blank">View Website</a>
+            </div>
+          </div>
+          
+          <div class="section growth">
+            <h3>📈 What This User Can Do</h3>
+            <div class="highlight">
+              <p>✅ Browse products</p>
+              <p>✅ Add items to cart</p>
+              <p>✅ Place orders</p>
+              <p>✅ Track order history</p>
+              <p>✅ Leave product reviews</p>
+              <p>✅ Contact support</p>
+            </div>
+          </div>
+          
+          <div class="section next-steps">
+            <h3>💡 Next Steps</h3>
+            <p>1. Monitor their activity in Firebase Analytics</p>
+            <p>2. Check if they make any purchases</p>
+            <p>3. Consider sending a personalized welcome email</p>
+            <p>4. Track their engagement with your products</p>
+          </div>
+          
+          <div class="section technical">
+            <h3>🔧 Technical Details</h3>
+            <div class="stat-item">
+              <span class="stat-label">User Agent:</span>
+              <span class="stat-value">${userAgent}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Referrer:</span>
+              <span class="stat-value">${document.referrer || 'Direct'}</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Website URL:</span>
+              <span class="stat-value">${window.location?.origin || 'https://auratech.com'}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="footer">
+          <p><strong>Keep growing your AuraTech community! 🚀</strong></p>
+          <p>AuraTech Notification System</p>
+          <p style="font-size: 12px; margin-top: 15px;">
+            This is an automated notification sent when a new user signs up.<br>
+            Signup Time: ${signupTime} | User: ${userData.email}
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+    `;
+
+    console.log('✅ Signup notification email prepared successfully');
+    console.log('📧 Email details:', { 
+      to: 'auratechs30@gmail.com', 
+      subject, 
+      newUser: userData.email,
+      timestamp: signupTime 
+    });
+    
+    return { 
+      success: true, 
+      subject, 
+      body, 
+      htmlBody,
+      recipient: 'auratechs30@gmail.com',
+      newUser: userData.email,
+      timestamp: signupTime
+    };
+  } catch (error) {
+    console.error('❌ Error preparing signup notification email:', error);
+    return { success: false, error: error.message };
   }
 };
 

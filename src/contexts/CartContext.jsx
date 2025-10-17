@@ -9,11 +9,14 @@ export function useCart() {
 }
 
 const cartReducer = (state, action) => {
+  console.log('🛒 Cart reducer action:', action.type, action.payload);
+  console.log('🛒 Current state:', state);
+  
   switch (action.type) {
     case 'ADD_ITEM':
       const existingItem = state.items.find(item => item.id === action.payload.id);
       if (existingItem) {
-        return {
+        const newState = {
           ...state,
           items: state.items.map(item =>
             item.id === action.payload.id
@@ -21,11 +24,15 @@ const cartReducer = (state, action) => {
               : item
           )
         };
+        console.log('🛒 Updated existing item, new state:', newState);
+        return newState;
       }
-      return {
+      const newState = {
         ...state,
         items: [...state.items, { ...action.payload, quantity: 1 }]
       };
+      console.log('🛒 Added new item, new state:', newState);
+      return newState;
 
     case 'REMOVE_ITEM':
       return {
@@ -59,7 +66,12 @@ export function CartProvider({ children }) {
   const { currentUser } = useAuth();
 
   const addItem = (product, onRequireAuth = null) => {
+    console.log('🛒 Adding item to cart:', product);
+    console.log('🛒 Current user:', currentUser);
+    console.log('🛒 Current cart items:', state.items);
+    
     if (!currentUser) {
+      console.log('🛒 No user, showing sign-in prompt');
       // If user is not authenticated, call the callback to show sign-in prompt
       if (onRequireAuth) {
         onRequireAuth();
@@ -67,6 +79,7 @@ export function CartProvider({ children }) {
       return false;
     }
     dispatch({ type: 'ADD_ITEM', payload: product });
+    console.log('🛒 Item added to cart successfully');
     return true;
   };
 
@@ -92,6 +105,9 @@ export function CartProvider({ children }) {
 
   const createOrderFromCart = async (customerInfo) => {
     try {
+      console.log('🛒 Creating order from cart with customer info:', customerInfo);
+      console.log('🛒 Cart items:', state.items);
+      
       const orders = [];
       
       // Create an order for each item in the cart
@@ -104,13 +120,19 @@ export function CartProvider({ children }) {
           productName: item.name,
           quantity: item.quantity,
           price: item.price,
-          totalPrice: item.price * item.quantity,
+          totalPrice: (item.price * item.quantity) + (customerInfo.shippingCost || 0), // Include shipping in total
           shippingCost: customerInfo.shippingCost || 0,
           description: item.description || `${item.name} - ${item.brand || 'AuraTech'}`,
-          note: customerInfo.note || ''
+          note: customerInfo.note || '',
+          productImage: item.image, // Include product image
+          productColor: item.color || 'Default' // Include product color
         };
         
+        console.log('🛒 Creating order for item:', item.name, 'with data:', orderData);
+        console.log('🛒 Item image being passed:', item.image);
+        console.log('🛒 ProductImage field:', orderData.productImage);
         const order = await createOrder(orderData);
+        console.log('🛒 Order created successfully:', order);
         orders.push(order);
       }
       

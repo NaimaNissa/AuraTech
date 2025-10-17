@@ -2,11 +2,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { useWishlist } from '../contexts/WishlistContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
 import { 
-  Search, 
   ShoppingCart, 
   User, 
   Menu, 
@@ -20,11 +18,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '../components/ui/dropdown-menu';
 
-export default function Navbar({ onNavigate, onSearch, currentPage }) {
+export default function Navbar({ onNavigate, currentPage }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [isScrolled, setIsScrolled] = useState(false);
   const { currentUser, logout } = useAuth();
   const { getTotalItems } = useCart();
@@ -41,20 +38,7 @@ export default function Navbar({ onNavigate, onSearch, currentPage }) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      onSearch(searchQuery);
-      onNavigate('products');
-    }
-  };
 
-  // Clear search when navigating to different pages
-  useEffect(() => {
-    if (currentPage !== 'products') {
-      setSearchQuery('');
-    }
-  }, [currentPage]);
 
   const handleLogout = async () => {
     try {
@@ -97,15 +81,15 @@ export default function Navbar({ onNavigate, onSearch, currentPage }) {
           <div className="flex items-center">
             <button
               onClick={() => onNavigate('home')}
-              className="flex items-center space-x-3 text-2xl font-bold transition-all duration-300" style={{color: '#FFFFFF'}}
+              className="flex items-center space-x-2 sm:space-x-3 text-lg sm:text-2xl font-bold transition-all duration-300" style={{color: '#FFFFFF'}}
             >
-              <img src="/logo-aura.png" alt="AuraTech" className="h-16 w-auto" />
+              <img src="/logo-aura.png" alt="AuraTech" className="h-8 w-auto sm:h-12 md:h-16" />
               <span>AuraTech</span>
             </button>
           </div>
 
           {/* Everything Else - Right Side */}
-          <div className="flex-1 flex justify-end items-center space-x-4">
+          <div className="flex-1 flex justify-end items-center space-x-2 sm:space-x-4">
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-6">
               {navItems.map((item) => (
@@ -129,21 +113,6 @@ export default function Navbar({ onNavigate, onSearch, currentPage }) {
               ))}
             </div>
 
-            {/* Search Bar */}
-            <div className="hidden md:flex max-w-xs lg:max-w-sm">
-              <form onSubmit={handleSearch} className="w-full">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    type="text"
-                    placeholder="Search products..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-4 w-full"
-                  />
-                </div>
-              </form>
-            </div>
 
             {/* Wishlist */}
             {currentUser && (
@@ -219,21 +188,7 @@ export default function Navbar({ onNavigate, onSearch, currentPage }) {
             backgroundColor: currentPage === 'home' ? 'rgba(121, 130, 1, 0.95)' : 'rgb(121, 130, 1)',
             borderTopColor: currentPage === 'home' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(250, 226, 68, 0.2)'
           }}>
-            <div className="px-2 pt-2 pb-3 space-y-1">
-              {/* Mobile Search */}
-              <form onSubmit={handleSearch} className="mb-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    type="text"
-                    placeholder="Search products..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-4 w-full"
-                  />
-                </div>
-              </form>
-
+            <div className="px-4 pt-3 pb-4 space-y-2">
               {/* Mobile Navigation Items */}
               {navItems.map((item) => (
                 <button
@@ -242,7 +197,7 @@ export default function Navbar({ onNavigate, onSearch, currentPage }) {
                     onNavigate(item.id);
                     setIsMenuOpen(false);
                   }}
-                  className="block w-full text-left px-3 py-2 rounded-lg text-base font-medium transition-all duration-300"
+                  className="block w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-300"
                   style={{
                     color: currentPage === item.id ? '#FFFFFF' : '#FFFFFF',
                     backgroundColor: currentPage === item.id ? 'rgba(255, 255, 255, 0.15)' : 'transparent'
@@ -251,6 +206,82 @@ export default function Navbar({ onNavigate, onSearch, currentPage }) {
                   {item.label}
                 </button>
               ))}
+
+              {/* Mobile User Actions */}
+              <div className="border-t border-white/20 pt-3 mt-3">
+                {currentUser ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        onNavigate('profile');
+                        setIsMenuOpen(false);
+                      }}
+                      className="flex items-center w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-300"
+                      style={{ color: '#FFFFFF' }}
+                    >
+                      <User className="mr-3 h-5 w-5" />
+                      Profile
+                    </button>
+                    <button
+                      onClick={() => {
+                        onNavigate('orders');
+                        setIsMenuOpen(false);
+                      }}
+                      className="flex items-center w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-300"
+                      style={{ color: '#FFFFFF' }}
+                    >
+                      <Package className="mr-3 h-5 w-5" />
+                      Orders
+                    </button>
+                    {getWishlistCount() > 0 && (
+                      <button
+                        onClick={() => {
+                          onNavigate('wishlist');
+                          setIsMenuOpen(false);
+                        }}
+                        className="flex items-center w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-300"
+                        style={{ color: '#FFFFFF' }}
+                      >
+                        <Heart className="mr-3 h-5 w-5" />
+                        Wishlist ({getWishlistCount()})
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        onNavigate('cart');
+                        setIsMenuOpen(false);
+                      }}
+                      className="flex items-center w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-300"
+                      style={{ color: '#FFFFFF' }}
+                    >
+                      <ShoppingCart className="mr-3 h-5 w-5" />
+                      Cart ({getTotalItems()})
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setIsMenuOpen(false);
+                      }}
+                      className="flex items-center w-full text-left px-4 py-3 rounded-lg text-base font-medium transition-all duration-300"
+                      style={{ color: '#FFFFFF' }}
+                    >
+                      <LogOut className="mr-3 h-5 w-5" />
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => {
+                      onNavigate('auth');
+                      setIsMenuOpen(false);
+                    }}
+                    className="w-full text-center px-4 py-3 rounded-lg text-base font-medium transition-all duration-300 bg-white/10"
+                    style={{ color: '#FFFFFF' }}
+                  >
+                    Sign In
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

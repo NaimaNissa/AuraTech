@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { WishlistProvider } from './contexts/WishlistContext';
+import PayPalProvider from './components/PayPalProvider';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
@@ -9,6 +10,7 @@ import ProductsPage from './pages/ProductsPage';
 import ProductDetailsPage from './pages/ProductDetailsPage';
 import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
+import SimpleCheckoutPage from './pages/SimpleCheckoutPage';
 import AuthPage from './pages/AuthPage';
 import ProfilePage from './pages/ProfilePage';
 import OrdersPage from './pages/OrdersPage';
@@ -196,9 +198,6 @@ function App() {
     }
   };
 
-  const handleSearch = (query) => {
-    setSearchQuery(query);
-  };
 
   const renderPage = () => {
     switch (currentPage) {
@@ -216,12 +215,12 @@ function App() {
             <CartPage onNavigate={handleNavigation} />
           </ProtectedRoute>
         );
-      case 'checkout':
-        return (
-          <ProtectedRoute>
-            <CheckoutPage onNavigate={handleNavigation} shippingData={shippingData} />
-          </ProtectedRoute>
-        );
+        case 'checkout':
+          return (
+            <ProtectedRoute>
+              <CheckoutPage onNavigate={handleNavigation} />
+            </ProtectedRoute>
+          );
       case 'contact':
         return <ContactPage onNavigate={handleNavigation} />;
       case 'wishlist':
@@ -251,14 +250,15 @@ function App() {
     <AuthProvider>
       <CartProvider>
         <WishlistProvider>
-          <div className="App">
-            <Navbar 
-              onNavigate={handleNavigation} 
-              onSearch={handleSearch}
-              currentPage={currentPage}
-            />
-            {renderPage()}
-          </div>
+          <PayPalProvider>
+        <div className="App">
+          <Navbar 
+            onNavigate={handleNavigation} 
+            currentPage={currentPage}
+          />
+          {renderPage()}
+        </div>
+          </PayPalProvider>
         </WishlistProvider>
       </CartProvider>
     </AuthProvider>

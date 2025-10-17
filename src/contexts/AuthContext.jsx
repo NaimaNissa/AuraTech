@@ -7,7 +7,9 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { sendLoginWelcomeEmailSimple } from '../lib/emailService';
+import { sendLoginWelcomeEmailSimple, sendSignupNotificationEmailSimple } from '../lib/emailService';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 const AuthContext = createContext();
 
@@ -40,6 +42,49 @@ export function AuthProvider({ children }) {
       } catch (emailError) {
         console.error('⚠️ Failed to send welcome email:', emailError);
         // Don't fail the signup if email fails
+      }
+
+      // Send admin notification email about new signup
+      try {
+        console.log('📧 Sending admin notification about new signup...');
+        await sendSignupNotificationEmailSimple({
+          email: result.user.email,
+          displayName: displayName,
+          uid: result.user.uid
+        });
+        console.log('✅ Admin notification email sent successfully');
+      } catch (notificationError) {
+        console.error('⚠️ Failed to send admin notification email:', notificationError);
+        // Don't fail the signup if notification fails
+      }
+
+      // Create dashboard notification for new user signup
+      try {
+        console.log('🔔 Creating dashboard notification for new user...');
+        const notification = {
+          type: 'new_user',
+          priority: 'medium',
+          title: 'New User Registration',
+          message: `New user registered: ${displayName || result.user.email}`,
+          details: {
+            userId: result.user.uid,
+            userName: displayName,
+            userEmail: result.user.email,
+            signupTime: new Date().toISOString()
+          },
+          actionUrl: '/customers',
+          icon: '👤',
+          color: '#3B82F6', // Blue for new users
+          isRead: false,
+          createdAt: new Date()
+        };
+
+        const notificationsRef = collection(db, 'notifications');
+        await addDoc(notificationsRef, notification);
+        console.log('✅ Dashboard notification created successfully');
+      } catch (dashboardNotificationError) {
+        console.error('⚠️ Failed to create dashboard notification:', dashboardNotificationError);
+        // Don't fail the signup if notification fails
       }
       
       return result;
