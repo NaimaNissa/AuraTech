@@ -1,12 +1,14 @@
 // Contact form email service
 // This service provides multiple methods to send contact form emails
+import emailjs from '@emailjs/browser';
+import { collection, addDoc } from 'firebase/firestore';
+import { db } from './firebase';
 
 // Method 1: Using EmailJS (if properly configured)
 export const sendContactEmailViaEmailJS = async (contactData) => {
   try {
-    const emailjs = await import('@emailjs/browser');
     
-    const response = await emailjs.default.send(
+    const response = await emailjs.send(
       'service_auratech',
       'template_contact',
       {
@@ -79,8 +81,6 @@ Reply directly to: ${contactData.email}
 // Method 3: Store in Firebase for admin to see (backup method)
 export const storeContactMessageInFirebase = async (contactData) => {
   try {
-    const { collection, addDoc } = await import('firebase/firestore');
-    const { db } = await import('./firebase');
     
     const contactMessagesRef = collection(db, 'contactMessages');
     

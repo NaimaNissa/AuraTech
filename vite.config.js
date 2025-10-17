@@ -14,5 +14,29 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split Firebase into its own chunk
+          'firebase': ['firebase/app', 'firebase/firestore', 'firebase/auth'],
+          // Split UI components
+          'ui': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+          // Split PayPal
+          'paypal': ['@paypal/react-paypal-js'],
+          // Split email services
+          'email': ['@emailjs/browser'],
+          // Split form libraries
+          'forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          // Split charts
+          'charts': ['recharts'],
+          // Split animations
+          'animations': ['framer-motion']
+        }
+      }
+    },
+    // Increase chunk size warning limit
+    chunkSizeWarningLimit: 1000
   }
 })
