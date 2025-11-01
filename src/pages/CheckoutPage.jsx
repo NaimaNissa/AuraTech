@@ -21,7 +21,7 @@ import {
   CheckCircle,
   Loader2
 } from 'lucide-react';
-import AuraTechPayPalButton from '../components/AuraTechPayPalButton';
+import WorkingPayPalButton from '../components/WorkingPayPalButton';
 
 export default function CheckoutPage({ onNavigate }) {
   const { items, getTotalPrice, createOrderFromCart, clearCart } = useCart();
@@ -49,6 +49,9 @@ export default function CheckoutPage({ onNavigate }) {
   const [dashboardShippingCosts, setDashboardShippingCosts] = useState({});
   const [dashboardCountries, setDashboardCountries] = useState([]);
   const [loadingShippingData, setLoadingShippingData] = useState(true);
+  
+  // Detect if running in production (Vercel/Netlify) or localhost
+  const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
   // Load dashboard shipping costs and countries
   useEffect(() => {
@@ -488,6 +491,17 @@ export default function CheckoutPage({ onNavigate }) {
               <CardContent className="pt-6">
                 {paymentMethod === 'paypal' ? (
                   <div className="space-y-4">
+                    {isProduction ? (
+                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <h4 className="font-semibold text-green-800 mb-2">💳 PayPal Payment</h4>
+                      <p className="text-sm text-green-700 mb-2">
+                        <strong>✅ Production Ready:</strong> PayPal is fully functional with secure HTTPS processing.
+                      </p>
+                      <p className="text-sm text-green-700">
+                        Pay with your PayPal account or use any debit/credit card through PayPal's secure payment system.
+                      </p>
+                    </div>
+                  ) : (
                     <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <h4 className="font-semibold text-blue-800 mb-2">💳 PayPal Payment</h4>
                       <p className="text-sm text-blue-700 mb-2">
@@ -496,9 +510,9 @@ export default function CheckoutPage({ onNavigate }) {
                       <p className="text-sm text-blue-700">
                         For local testing, you can use the manual payment option below, or deploy to Vercel/Netlify for full PayPal functionality.
                       </p>
-                  </div>
-                    <AuraTechPayPalButton
-                      items={items}
+                    </div>
+                  )}
+                    <WorkingPayPalButton
                       shippingInfo={shippingInfo}
                       shippingCost={shippingCost}
                       onOrderSuccess={handlePayPalSuccess}

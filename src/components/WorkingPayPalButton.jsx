@@ -1,190 +1,211 @@
-import { useEffect, useState } from "react";
+import React, { useState, useEffect } from 'react';
+import { PayPalButtons, PayPalMarks } from '@paypal/react-paypal-js';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createOrder } from '../lib/orderService';
 import { Alert, AlertDescription } from './ui/alert';
-import { Loader2, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
-export default function WorkingPayPalButton({ 
+const WorkingPayPalButton = ({ 
   shippingInfo, 
   shippingCost, 
   onOrderSuccess, 
   onOrderError,
   className = "" 
-}) {
+}) => {
   const { items, getTotalPrice, clearCart } = useCart();
   const { currentUser } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [orderStatus, setOrderStatus] = useState(null);
-  const [paypalLoaded, setPaypalLoaded] = useState(false);
-  const [paypalError, setPaypalError] = useState(null);
+  const [orderStatus, setOrderStatus] = useState(null); // 'success', 'error', null
+  const [paymentDetails, setPaymentDetails] = useState(null);
+  
+  // Detect if running in production (Vercel/Netlify) or localhost
+  const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
-  // Calculate order total
+  // Calculate order total including shipping and tax
   const calculateOrderTotal = () => {
     const subtotal = getTotalPrice();
-    const tax = (subtotal + shippingCost) * 0.08;
+    const tax = (subtotal + shippingCost) * 0.08; // 8% tax
     return (subtotal + shippingCost + tax).toFixed(2);
   };
 
-  // Handle fallback order
-  const handleFallbackOrder = async () => {
+  // Create order on PayPal
+  const createPayPalOrder = (data, actions) => {
+    console.log('🔄 Creating PayPal order...');
+    
+    const orderTotal = calculateOrderTotal();
+    const subtotal = getTotalPrice();
+    const tax = (subtotal + shippingCost) * 0.08;
+
+    return actions.order.create({
+      purchase_units: [
+        {
+          amount: {
+            currency_code: 'USD',
+            value: orderTotal,
+            breakdown: {
+              item_total: {
+                currency_code: 'USD',
+                value: subtotal.toFixed(2)
+              },
+              shipping: {
+                currency_code: 'USD',
+                value: shippingCost.toFixed(2)
+              },
+              tax_total: {
+                currency_code: 'USD',
+                value: tax.toFixed(2)
+              }
+            }
+          },
+          items: items.map(item => ({
+            name: item.name,
+            unit_amount: {
+              currency_code: 'USD',
+              value: item.price.toFixed(2)
+            },
+            quantity: item.quantity.toString(),
+            category: 'PHYSICAL_GOODS'
+          })),
+          shipping: {
+            name: {
+              full_name: shippingInfo.fullName
+            },
+            address: {
+              address_line_1: shippingInfo.address,
+              admin_area_2: shippingInfo.city,
+              admin_area_1: shippingInfo.state,
+              postal_code: shippingInfo.zipCode,
+              country_code: shippingInfo.country === 'United States' ? 'US' : 
+                          shippingInfo.country === 'Canada' ? 'CA' :
+                          shippingInfo.country === 'United Kingdom' ? 'GB' :
+                          shippingInfo.country === 'Australia' ? 'AU' : 'US'
+            }
+          }
+        }
+      ],
+      application_context: {
+        shipping_preference: 'SET_PROVIDED_ADDRESS'
+      }
+    });
+  };
+
+  // Handle successful PayPal payment
+  const onApprove = async (data, actions) => {
     try {
       setIsProcessing(true);
       setOrderStatus(null);
+      console.log('✅ PayPal payment approved:', data);
+
+      // IMPORTANT: Capture the payment FIRST
+      const details = await actions.order.capture();
+      console.log('💰 Payment captured successfully:', details);
       
+      // Store payment details for order creation
+      setPaymentDetails(details);
+
+      // Validate payment was successful
+      if (details.status !== 'COMPLETED') {
+        throw new Error(`Payment not completed. Status: ${details.status}`);
+      }
+
+      // Now create order in our database ONLY after successful payment
       const orderData = {
-        fullName: `${shippingInfo.firstName} ${shippingInfo.lastName}`,
+        fullName: shippingInfo.fullName,
         email: shippingInfo.email,
-        contact: shippingInfo.phone,
+        contact: shippingInfo.contact,
         address: `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}, ${shippingInfo.country}`,
         productName: items.map(item => `${item.name} (${item.quantity}x)`).join(', '),
         quantity: items.reduce((total, item) => total + item.quantity, 0),
         price: getTotalPrice(),
         totalPrice: calculateOrderTotal(),
         shippingCost: shippingCost,
-        description: `Order via Manual Payment - ${items.length} items`,
-        note: `Payment method: Manual payment collection. PayPal unavailable.`
+        description: `Order via PayPal - ${items.length} items`,
+        note: `PayPal Transaction ID: ${details.id}, Status: ${details.status}`,
+        productImage: items[0]?.image || '',
+        productColor: items[0]?.color || 'Default',
+        paymentMethod: 'paypal',
+        paymentStatus: 'completed',
+        paypalTransactionId: details.id
       };
 
+      console.log('📦 Creating order in database with payment details:', orderData);
+      
+      // Create order in Firebase
       const order = await createOrder(orderData);
+      console.log('📦 Order created in database:', order);
+
+      // Clear cart only after successful order creation
       clearCart();
+
+      // Set success status
       setOrderStatus('success');
       
+      // Call success callback
       if (onOrderSuccess) {
-        onOrderSuccess(order, { id: order.orderId, status: 'pending_payment' });
+        onOrderSuccess(order, details);
       }
-      
-      alert(`Order placed successfully! Order ID: ${order.orderId}\n\nWe will contact you shortly to arrange payment.`);
+
+      // Show success message
+      alert(`Payment completed successfully!\n\nOrder ID: ${order.orderId}\nPayPal Transaction: ${details.id}\n\nThank you for your purchase!`);
 
     } catch (error) {
-      console.error('❌ Error creating fallback order:', error);
+      console.error('❌ Error processing PayPal payment:', error);
       setOrderStatus('error');
       
       if (onOrderError) {
         onOrderError(error);
       }
       
-      alert('Failed to place order. Please try again or contact support.');
+      alert(`Payment processing failed: ${error.message}\n\nPlease try again or contact support.`);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Load PayPal SDK
-  useEffect(() => {
-    if (!items.length || !currentUser) return;
+  // Handle PayPal errors
+  const onError = (err) => {
+    console.error('❌ PayPal error:', err);
+    setOrderStatus('error');
+    
+    if (onOrderError) {
+      onOrderError(err);
+    }
+    
+    alert('Payment failed. Please try again or contact support if the problem persists.');
+  };
 
-    // Use a working PayPal sandbox client ID
-    const script = document.createElement("script");
-    script.src = "https://www.paypal.com/sdk/js?client-id=AQkquBDf1zctJOWGKWUEtKXm6qVhueUEMvXO_-MCI4dQQNL-LROvk4ttX-EDg&currency=USD&intent=capture";
-    
-    script.onload = () => {
-      console.log('✅ PayPal SDK loaded successfully');
-      setPaypalLoaded(true);
-      setPaypalError(null);
-      
-      if (window.paypal) {
-        window.paypal.Buttons({
-          style: {
-            layout: 'vertical',
-            color: 'blue',
-            shape: 'rect',
-            label: 'paypal'
-          },
-          
-          createOrder: function(data, actions) {
-            return actions.order.create({
-              purchase_units: [{
-                amount: {
-                  value: calculateOrderTotal(),
-                  currency_code: 'USD'
-                }
-              }]
-            });
-          },
-          
-          onApprove: function(data, actions) {
-            return actions.order.capture().then(async function(details) {
-              try {
-                setIsProcessing(true);
-                
-                const orderData = {
-                  fullName: `${shippingInfo.firstName} ${shippingInfo.lastName}`,
-                  email: shippingInfo.email,
-                  contact: shippingInfo.phone,
-                  address: `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}, ${shippingInfo.country}`,
-                  productName: items.map(item => `${item.name} (${item.quantity}x)`).join(', '),
-                  quantity: items.reduce((total, item) => total + item.quantity, 0),
-                  price: getTotalPrice(),
-                  totalPrice: calculateOrderTotal(),
-                  shippingCost: shippingCost,
-                  description: `Order via PayPal - ${items.length} items`,
-                  note: `PayPal Transaction ID: ${details.id}`
-                };
+  // Handle cancellation
+  const onCancel = (data) => {
+    console.log('🚫 PayPal payment cancelled:', data);
+    setOrderStatus(null);
+  };
 
-                const order = await createOrder(orderData);
-                clearCart();
-                setOrderStatus('success');
-                
-                if (onOrderSuccess) {
-                  onOrderSuccess(order, details);
-                }
-                
-                alert(`Payment completed! Order ID: ${order.orderId}`);
-                
-              } catch (error) {
-                console.error('❌ Error creating order:', error);
-                setOrderStatus('error');
-                if (onOrderError) onOrderError(error);
-                alert('Payment successful but order creation failed. Please contact support.');
-              } finally {
-                setIsProcessing(false);
-              }
-            });
-          },
-          
-          onError: function(err) {
-            console.error('❌ PayPal error:', err);
-            setOrderStatus('error');
-            if (onOrderError) onOrderError(err);
-            alert('Payment failed. Please try again.');
-          }
-          
-        }).render('#paypal-button-container');
-      }
-    };
-    
-    script.onerror = () => {
-      console.error('❌ Failed to load PayPal SDK');
-      setPaypalError('PayPal is currently unavailable. Please use the alternative payment option below.');
-    };
-    
-    document.body.appendChild(script);
-    
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
-  }, [items, shippingInfo, shippingCost, currentUser]);
-
+  // Don't render if no items or user not logged in
   if (!items.length || !currentUser) {
     return null;
   }
 
+  // Validate shipping info
+  if (!shippingInfo.fullName || !shippingInfo.email || !shippingInfo.address) {
+    return (
+      <Alert variant="destructive">
+        <XCircle className="h-4 w-4" />
+        <AlertDescription>
+          Please complete all shipping information before proceeding with payment.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* PayPal Section */}
-      <div className="text-center mb-4">
-        <div className="text-sm text-gray-600 mb-2">
-          <strong>💳 Pay with PayPal Account or Debit/Credit Card</strong>
-        </div>
-        <div className="text-xs text-gray-500">
-          All payments processed securely by PayPal
-        </div>
+      {/* PayPal Marks - Shows PayPal branding */}
+      <div className="text-center">
+        <PayPalMarks />
       </div>
 
-      {/* Status Messages */}
+      {/* Order Status Messages */}
       {orderStatus === 'success' && (
         <Alert className="border-green-200 bg-green-50">
           <CheckCircle className="h-4 w-4 text-green-600" />
@@ -198,12 +219,12 @@ export default function WorkingPayPalButton({
         <Alert variant="destructive">
           <XCircle className="h-4 w-4" />
           <AlertDescription>
-            Payment failed. Please try again or use the alternative payment option below.
+            Payment failed. Please try again or contact support if the problem persists.
           </AlertDescription>
         </Alert>
       )}
 
-      {/* PayPal Button Container */}
+      {/* PayPal Buttons */}
       <div className="relative">
         {isProcessing && (
           <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
@@ -213,58 +234,38 @@ export default function WorkingPayPalButton({
             </div>
           </div>
         )}
-
-        {!paypalLoaded && !paypalError && (
-          <div className="flex items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
-            <div className="flex items-center gap-2 text-gray-600">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="font-medium">Loading PayPal...</span>
-            </div>
-          </div>
-        )}
         
-        <div id="paypal-button-container"></div>
+        <PayPalButtons
+          createOrder={createPayPalOrder}
+          onApprove={onApprove}
+          onError={onError}
+          onCancel={onCancel}
+          style={{
+            layout: 'vertical',
+            color: 'blue',
+            shape: 'rect',
+            label: 'paypal',
+            height: 45,
+            tagline: true
+          }}
+          fundingSource={undefined} // Allow both PayPal and cards
+        />
       </div>
 
-      {/* Fallback Payment Option */}
-      {(paypalError || !paypalLoaded) && (
-        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <div className="text-center">
-            <h3 className="text-lg font-semibold text-yellow-800 mb-2">
-              Alternative Payment Option
-            </h3>
-            <p className="text-sm text-yellow-700 mb-4">
-              Since PayPal is currently unavailable, you can place your order and we'll contact you to arrange payment via phone, bank transfer, or other methods.
-            </p>
-            <button
-              onClick={handleFallbackOrder}
-              disabled={isProcessing}
-              className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-3 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isProcessing ? (
-                <div className="flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Processing Order...
-                </div>
-              ) : (
-                'Place Order (Contact for Payment)'
-              )}
-            </button>
-            <p className="text-xs text-yellow-600 mt-2">
-              We'll contact you within 24 hours to arrange payment
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Payment Info */}
+      {/* Payment Options Info */}
       <div className="text-center text-sm text-gray-600 space-y-1">
-        <p>🔒 All payments processed securely</p>
+        <p>💳 Pay with PayPal or use your debit/credit card</p>
+        <p>🔒 Secure payment processing by PayPal</p>
         <p>📧 You'll receive an email confirmation after payment</p>
-        <p>💳 Supports PayPal accounts, Visa, Mastercard, Amex, and Discover</p>
-        <p>🌍 International cards accepted</p>
+        <p>💰 Order total: ${calculateOrderTotal()} (includes tax and shipping)</p>
+        {isProduction ? (
+          <p className="text-green-600 font-medium">✅ Production environment - Full PayPal functionality enabled</p>
+        ) : (
+          <p className="text-blue-600 font-medium">⚠️ Development mode - Deploy to Vercel for full PayPal functionality</p>
+        )}
       </div>
     </div>
   );
-}
+};
 
+export default WorkingPayPalButton;

@@ -65,7 +65,7 @@ const PayPalCheckoutButton = ({
           })),
           shipping: {
             name: {
-              full_name: `${shippingInfo.firstName} ${shippingInfo.lastName}`
+              full_name: shippingInfo.fullName
             },
             address: {
               address_line_1: shippingInfo.address,
@@ -97,11 +97,16 @@ const PayPalCheckoutButton = ({
       const details = await actions.order.capture();
       console.log('💰 Payment captured:', details);
 
-      // Create order in our database
+      // Validate payment was successful
+      if (details.status !== 'COMPLETED') {
+        throw new Error(`Payment not completed. Status: ${details.status}`);
+      }
+
+      // Create order in our database ONLY after successful payment
       const orderData = {
-        fullName: `${shippingInfo.firstName} ${shippingInfo.lastName}`,
+        fullName: shippingInfo.fullName,
         email: shippingInfo.email,
-        contact: shippingInfo.phone,
+        contact: shippingInfo.contact,
         address: `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}, ${shippingInfo.country}`,
         productName: items.map(item => `${item.name} (${item.quantity}x)`).join(', '),
         quantity: items.reduce((total, item) => total + item.quantity, 0),
@@ -109,7 +114,10 @@ const PayPalCheckoutButton = ({
         totalPrice: calculateOrderTotal(),
         shippingCost: shippingCost,
         description: `Order via PayPal - ${items.length} items`,
-        note: `PayPal Transaction ID: ${details.id}`
+        note: `PayPal Transaction ID: ${details.id}`,
+        paymentMethod: 'paypal',
+        paymentStatus: 'completed',
+        paypalTransactionId: details.id
       };
 
       // Create order in Firebase

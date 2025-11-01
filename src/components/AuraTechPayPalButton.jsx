@@ -180,7 +180,7 @@ export default function AuraTechPayPalButton({
                 })),
                 shipping: {
                   name: {
-                    full_name: `${shippingInfo.firstName} ${shippingInfo.lastName}`
+                    full_name: shippingInfo.fullName
                   },
                   address: {
                     address_line_1: shippingInfo.address,
@@ -212,9 +212,9 @@ export default function AuraTechPayPalButton({
               try {
                 // Create order in AuraTech system
                 const orderData = {
-                  fullName: `${shippingInfo.firstName} ${shippingInfo.lastName}`,
+                  fullName: shippingInfo.fullName,
                   email: shippingInfo.email,
-                  contact: shippingInfo.phone,
+                  contact: shippingInfo.contact,
                   address: `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}, ${shippingInfo.country}`,
                   productName: items.map(item => `${item.name} (${item.quantity}x)`).join(', '),
                   quantity: items.reduce((total, item) => total + item.quantity, 0),

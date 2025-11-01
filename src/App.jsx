@@ -16,6 +16,7 @@ import ProfilePage from './pages/ProfilePage';
 import OrdersPage from './pages/OrdersPage';
 import ContactPage from './pages/ContactPage';
 import WishlistPage from './pages/WishlistPage';
+import PayPalTest from './components/PayPalTest';
 import './App.css';
 
 function App() {
@@ -56,6 +57,8 @@ function App() {
       setCurrentPage('contact');
     } else if (path === '/wishlist') {
       setCurrentPage('wishlist');
+    } else if (path === '/paypal-test') {
+      setCurrentPage('paypal-test');
     }
   }, []);
 
@@ -109,6 +112,10 @@ function App() {
         setSearchQuery('');
       } else if (path === '/wishlist') {
         setCurrentPage('wishlist');
+        setProductId('');
+        setSearchQuery('');
+      } else if (path === '/paypal-test') {
+        setCurrentPage('paypal-test');
         setProductId('');
         setSearchQuery('');
       }
@@ -223,26 +230,28 @@ function App() {
           );
       case 'contact':
         return <ContactPage onNavigate={handleNavigation} />;
-      case 'wishlist':
-        return (
-          <ProtectedRoute>
-            <WishlistPage onNavigate={handleNavigation} />
-          </ProtectedRoute>
-        );
-      case 'orders':
-        return (
-          <ProtectedRoute>
-            <OrdersPage onNavigate={handleNavigation} />
-          </ProtectedRoute>
-        );
-      case 'profile':
-        return (
-          <ProtectedRoute>
-            <ProfilePage onNavigate={handleNavigation} />
-          </ProtectedRoute>
-        );
-      default:
-        return <HomePage onNavigate={handleNavigation} />;
+        case 'wishlist':
+          return (
+            <ProtectedRoute>
+              <WishlistPage onNavigate={handleNavigation} />
+            </ProtectedRoute>
+          );
+        case 'orders':
+          return (
+            <ProtectedRoute>
+              <OrdersPage onNavigate={handleNavigation} />
+            </ProtectedRoute>
+          );
+        case 'profile':
+          return (
+            <ProtectedRoute>
+              <ProfilePage onNavigate={handleNavigation} />
+            </ProtectedRoute>
+          );
+        case 'paypal-test':
+          return <PayPalTest />;
+        default:
+          return <HomePage onNavigate={handleNavigation} />;
     }
   };
 

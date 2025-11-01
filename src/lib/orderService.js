@@ -83,7 +83,11 @@ export const createOrder = async (orderData) => {
       ProductColor: orderData.productColor || 'Default', // Save product color
       ShippingCost: orderData.shippingCost?.toString() || '0',
       TotalPrice: orderData.totalPrice.toString(),
-      Status: 'pending',
+      Status: orderData.paymentStatus === 'completed' ? 'paid' : 'pending',
+      PaymentMethod: orderData.paymentMethod || 'manual',
+      PaymentStatus: orderData.paymentStatus || 'pending',
+      PayPalTransactionId: orderData.paypalTransactionId || '',
+      Note: orderData.note || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
