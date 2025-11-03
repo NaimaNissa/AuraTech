@@ -4,6 +4,7 @@ import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createOrder } from '../lib/orderService';
 import { Alert, AlertDescription } from './ui/alert';
+import { Button } from './ui/button';
 import { Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
 const WorkingPayPalButton = ({ 
@@ -26,11 +27,28 @@ const WorkingPayPalButton = ({
   // Debug PayPal SDK loading status
   useEffect(() => {
     console.log('💳 PayPal SDK Status:', { isPending, isResolved, isRejected });
+    
     if (isResolved) {
       console.log('✅ PayPal SDK loaded and ready!');
+      console.log('✅ PayPal buttons can now be rendered');
     }
+    
     if (isRejected) {
       console.error('❌ PayPal SDK failed to load');
+      console.error('💡 Troubleshooting steps:');
+      console.error('   1. Check if PayPal Client ID is valid');
+      console.error('   2. Verify Client ID in PayPal Developer Console: https://developer.paypal.com/dashboard/applications');
+      console.error('   3. Ensure Client ID is active and not suspended');
+      console.error('   4. Check network connectivity');
+      console.error('   5. Verify VITE_PAYPAL_CLIENT_ID environment variable is set correctly');
+      
+      // Try to get more error details
+      const paypalScript = document.querySelector('script[src*="paypal.com/sdk"]');
+      if (paypalScript) {
+        console.error('📜 PayPal script element found:', paypalScript.src);
+      } else {
+        console.error('⚠️ PayPal script element not found in DOM');
+      }
     }
   }, [isPending, isResolved, isRejected]);
 
@@ -236,12 +254,39 @@ const WorkingPayPalButton = ({
 
       {/* PayPal SDK Error State */}
       {isRejected && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Failed to load PayPal. Please refresh the page and try again. If the problem persists, contact support.
-          </AlertDescription>
-        </Alert>
+        <div className="space-y-4">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="space-y-2">
+              <p className="font-semibold">Failed to load PayPal checkout</p>
+              <p>This could be due to:</p>
+              <ul className="list-disc list-inside space-y-1 text-sm ml-2">
+                <li>Invalid or inactive PayPal Client ID</li>
+                <li>Network connectivity issues</li>
+                <li>Content Security Policy (CSP) restrictions</li>
+                <li>PayPal service temporarily unavailable</li>
+              </ul>
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                <p className="text-sm font-semibold text-blue-900 mb-1">💡 Troubleshooting:</p>
+                <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800">
+                  <li>Verify your PayPal Client ID is valid and active in <a href="https://developer.paypal.com/dashboard/applications" target="_blank" rel="noopener noreferrer" className="underline">PayPal Developer Console</a></li>
+                  <li>Check that VITE_PAYPAL_CLIENT_ID is set correctly in your environment variables</li>
+                  <li>Refresh the page and try again</li>
+                  <li>Check browser console (F12) for detailed error messages</li>
+                </ol>
+              </div>
+            </AlertDescription>
+          </Alert>
+          
+          {/* Retry Button */}
+          <Button
+            onClick={() => window.location.reload()}
+            variant="outline"
+            className="w-full"
+          >
+            🔄 Refresh Page & Retry
+          </Button>
+        </div>
       )}
 
       {/* Order Status Messages */}
