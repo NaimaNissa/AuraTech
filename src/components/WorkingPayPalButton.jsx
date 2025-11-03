@@ -180,20 +180,19 @@ const WorkingPayPalButton = ({
           )}
           
           <div className="border-2 border-gray-200 rounded-lg p-4">
-            <PayPalButtons
-              createOrder={createPayPalOrder}
-              onApprove={onApprove}
-              onError={onError}
-              onCancel={onCancel}
-              style={{
-                layout: 'vertical',
-                color: 'blue',
-                shape: 'rect',
-                label: 'paypal',
-                height: 50,
-                tagline: true
-              }}
-            />
+          <PayPalButtons
+            createOrder={createPayPalOrder}
+            onApprove={onApprove}
+            onError={onError}
+            onCancel={onCancel}
+            style={{
+              layout: 'vertical',
+              color: 'blue',
+              shape: 'rect',
+              label: 'paypal',
+              height: 50
+            }}
+          />
           </div>
         </div>
       ) : (
