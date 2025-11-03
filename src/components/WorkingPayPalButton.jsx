@@ -65,11 +65,40 @@ const WorkingPayPalButton = ({
     script.defer = true;
     
     script.onload = () => {
-      console.log('✅ PayPal SDK loaded successfully!');
-      console.log('✅ window.paypal available:', !!window.paypal);
-      setPaypalLoaded(true);
-      setLoading(false);
-      setPaypalError(null);
+      console.log('✅ PayPal SDK script loaded');
+      
+      // Wait for PayPal SDK to be fully initialized
+      const checkPayPalReady = () => {
+        if (window.paypal && typeof window.paypal.Buttons === 'function') {
+          console.log('✅ PayPal SDK fully initialized!');
+          console.log('✅ window.paypal.Buttons available');
+          setPaypalLoaded(true);
+          setLoading(false);
+          setPaypalError(null);
+        } else if (window.paypal && window.paypal.Buttons) {
+          // Sometimes it's in a different structure, check for paypal.Buttons
+          console.log('✅ PayPal SDK initialized (alternative structure)');
+          setPaypalLoaded(true);
+          setLoading(false);
+          setPaypalError(null);
+        } else {
+          // Retry after a short delay
+          console.log('⏳ Waiting for PayPal SDK to initialize...');
+          setTimeout(checkPayPalReady, 100);
+        }
+      };
+      
+      // Start checking
+      checkPayPalReady();
+      
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        if (!paypalLoaded && !window.paypal) {
+          console.error('❌ PayPal SDK timeout - SDK not initialized after 5 seconds');
+          setPaypalError('PayPal SDK failed to initialize. Please refresh the page.');
+          setLoading(false);
+        }
+      }, 5000);
     };
 
     script.onerror = (error) => {
@@ -95,23 +124,78 @@ const WorkingPayPalButton = ({
 
   // Initialize PayPal buttons when SDK is loaded
   useEffect(() => {
-    if (!paypalLoaded || !window.paypal || !buttonContainerRef.current) return;
+    if (!paypalLoaded || !buttonContainerRef.current) return;
     if (!shippingInfo.fullName || !shippingInfo.email || !shippingInfo.address) return;
+
+    // Wait for PayPal SDK to be ready with polling
+    let retryCount = 0;
+    const maxRetries = 50; // 5 seconds max (50 * 100ms)
+    
+    const waitForPayPal = setInterval(() => {
+      retryCount++;
+      
+      if (!window.paypal) {
+        if (retryCount >= maxRetries) {
+          clearInterval(waitForPayPal);
+          console.error('❌ window.paypal not available after timeout');
+          setPaypalError('PayPal SDK failed to initialize. Please refresh the page.');
+        }
+        return;
+      }
+
+      // Check if Buttons is available - try multiple possible locations
+      let paypalButtons = null;
+      
+      if (typeof window.paypal.Buttons === 'function') {
+        paypalButtons = window.paypal.Buttons;
+      } else if (window.paypal.buttons && typeof window.paypal.buttons === 'function') {
+        paypalButtons = window.paypal.buttons;
+      } else if (window.paypal.default && typeof window.paypal.default.Buttons === 'function') {
+        paypalButtons = window.paypal.default.Buttons;
+      }
+
+      if (paypalButtons) {
+        clearInterval(waitForPayPal);
+        console.log('✅ PayPal Buttons function found!');
+        console.log('window.paypal structure:', Object.keys(window.paypal));
+        
+        // Initialize buttons
+        initializeButtons(paypalButtons);
+      } else if (retryCount >= maxRetries) {
+        clearInterval(waitForPayPal);
+        console.error('❌ PayPal Buttons not available after timeout');
+        console.error('window.paypal:', window.paypal);
+        console.error('Available keys:', Object.keys(window.paypal || {}));
+        if (window.paypal) {
+          console.error('window.paypal.Buttons type:', typeof window.paypal.Buttons);
+          console.error('window.paypal.Buttons value:', window.paypal.Buttons);
+        }
+        setPaypalError('PayPal Buttons API not available. Please refresh the page.');
+      }
+    }, 100);
+
+    return () => clearInterval(waitForPayPal);
+  }, [paypalLoaded, shippingInfo, shippingCost, items, initializeButtons]);
+
+  // Function to initialize PayPal buttons
+  const initializeButtons = React.useCallback((buttonsFunction) => {
+    if (!buttonContainerRef.current) return;
 
     console.log('🔄 Initializing PayPal buttons...');
 
     // Clear existing buttons
-    if (buttonContainerRef.current) {
-      buttonContainerRef.current.innerHTML = '';
-    }
+    buttonContainerRef.current.innerHTML = '';
 
     try {
       const orderTotal = calculateOrderTotal();
       const subtotal = getTotalPrice();
       const tax = (subtotal + shippingCost) * 0.08;
 
-      // Create PayPal buttons
-      paypalButtonsRef.current = window.paypal.Buttons({
+      console.log('✅ Creating PayPal buttons instance...');
+      console.log('💰 Order total:', orderTotal);
+
+      // Create PayPal buttons using the passed function
+      paypalButtonsRef.current = buttonsFunction({
         style: {
           layout: 'vertical',
           color: 'blue',
@@ -264,25 +348,18 @@ const WorkingPayPalButton = ({
           setOrderStatus(null);
         }
 
-      }).render(buttonContainerRef.current).catch((error) => {
+      }).render(buttonContainerRef.current).then(() => {
+        console.log('✅ PayPal buttons rendered successfully');
+      }).catch((error) => {
         console.error('❌ PayPal buttons failed to render:', error);
-        setPaypalError('Failed to initialize PayPal buttons. Please refresh the page.');
+        setPaypalError('Failed to render PayPal buttons. Please refresh the page.');
       });
-
-      console.log('✅ PayPal buttons rendered successfully');
 
     } catch (error) {
       console.error('❌ Error initializing PayPal buttons:', error);
-      setPaypalError('Failed to initialize PayPal buttons. Please refresh the page.');
+      setPaypalError(`Failed to initialize PayPal buttons: ${error.message}. Please refresh the page.`);
     }
-
-    // Cleanup
-    return () => {
-      if (paypalButtonsRef.current && typeof paypalButtonsRef.current.close === 'function') {
-        paypalButtonsRef.current.close();
-      }
-    };
-  }, [paypalLoaded, shippingInfo, shippingCost, items, getTotalPrice, clearCart, onOrderSuccess, onOrderError]);
+  }, [items, shippingInfo, shippingCost, getTotalPrice, clearCart, onOrderSuccess, onOrderError]);
 
   // Don't render if no items or user not logged in
   if (!items.length || !currentUser) {
