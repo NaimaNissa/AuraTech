@@ -133,30 +133,23 @@ const WorkingPayPalButton = ({
 
   // Don't render if no items or user
   if (!items.length || !currentUser) {
-    return (
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          {!items.length ? 'Please add items to cart first.' : 'Please sign in to continue.'}
-        </AlertDescription>
-      </Alert>
-    );
+    return null; // Don't show anything, let checkout page handle it
   }
 
-  // Validate shipping
-  if (!shippingInfo.fullName || !shippingInfo.email || !shippingInfo.address) {
-    return (
-      <Alert variant="destructive">
-        <XCircle className="h-4 w-4" />
-        <AlertDescription>
-          Please complete all shipping information.
-        </AlertDescription>
-      </Alert>
-    );
-  }
+  // Validate shipping - but still show button with warning
+  const shippingIncomplete = !shippingInfo.fullName || !shippingInfo.email || !shippingInfo.address || !shippingInfo.city || !shippingInfo.state || !shippingInfo.zipCode;
 
   return (
     <div className={`space-y-4 ${className}`}>
+      {shippingIncomplete && (
+        <Alert variant="destructive">
+          <XCircle className="h-4 w-4" />
+          <AlertDescription>
+            Please complete all shipping information before proceeding with payment.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {orderStatus === 'success' && (
         <Alert className="border-green-200 bg-green-50">
           <CheckCircle className="h-4 w-4 text-green-600" />
@@ -193,17 +186,19 @@ const WorkingPayPalButton = ({
             color: 'blue',
             shape: 'rect',
             label: 'paypal',
-            height: 45
+            height: 45,
+            tagline: true
           }}
         />
       </div>
 
       <div className="text-center text-sm text-gray-600 space-y-1">
-        <p>💳 Pay with PayPal or card</p>
-        <p>🔒 Secure payment by PayPal</p>
-        <p>💰 Total: ${calculateOrderTotal()} (includes tax & shipping)</p>
+        <p>💳 Pay with PayPal or use your debit/credit card</p>
+        <p>🔒 Secure payment processing by PayPal</p>
+        <p>📧 You'll receive an email confirmation after payment</p>
+        <p className="font-semibold text-gray-800">💰 Order total: ${calculateOrderTotal()} (includes tax & shipping)</p>
         {isProduction && (
-          <p className="text-green-600 font-medium">✅ Production ready</p>
+          <p className="text-green-600 font-medium">✅ Production environment - Full PayPal functionality enabled</p>
         )}
       </div>
     </div>

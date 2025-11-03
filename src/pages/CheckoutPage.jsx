@@ -250,7 +250,8 @@ export default function CheckoutPage({ onNavigate }) {
   }
 
   const subtotal = getTotalPrice();
-  const total = subtotal + shippingCost;
+  const tax = (subtotal + shippingCost) * 0.08; // 8% tax
+  const total = subtotal + shippingCost + tax;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -475,7 +476,11 @@ export default function CheckoutPage({ onNavigate }) {
                     <div className="flex justify-between">
                       <span>Shipping ({shippingInfo.country})</span>
                       <span>${shippingCost.toFixed(2)}</span>
-                  </div>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tax (8%)</span>
+                      <span>${tax.toFixed(2)}</span>
+                    </div>
                   <Separator />
                     <div className="flex justify-between text-lg font-bold">
                       <span>Total</span>
