@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PayPalButtons } from '@paypal/react-paypal-js';
+import { PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createOrder } from '../lib/orderService';
@@ -17,6 +17,7 @@ const WorkingPayPalButton = ({
   const { currentUser } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderStatus, setOrderStatus] = useState(null);
+  const [{ isPending, isResolved }] = usePayPalScriptReducer();
   
   const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
@@ -166,31 +167,51 @@ const WorkingPayPalButton = ({
         </Alert>
       )}
 
-      <div className="relative">
-        {isProcessing && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
-            <div className="flex items-center gap-2 text-blue-600">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="font-medium">Processing payment...</span>
+      {isPending && (
+        <Alert>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <AlertDescription>
+            Loading PayPal checkout button...
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {isResolved && (
+        <div className="relative">
+          {isProcessing && (
+            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
+              <div className="flex items-center gap-2 text-blue-600">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="font-medium">Processing payment...</span>
+              </div>
             </div>
-          </div>
-        )}
-        
-        <PayPalButtons
-          createOrder={createPayPalOrder}
-          onApprove={onApprove}
-          onError={onError}
-          onCancel={onCancel}
-          style={{
-            layout: 'vertical',
-            color: 'blue',
-            shape: 'rect',
-            label: 'paypal',
-            height: 45,
-            tagline: true
-          }}
-        />
-      </div>
+          )}
+          
+          <PayPalButtons
+            createOrder={createPayPalOrder}
+            onApprove={onApprove}
+            onError={onError}
+            onCancel={onCancel}
+            style={{
+              layout: 'vertical',
+              color: 'blue',
+              shape: 'rect',
+              label: 'paypal',
+              height: 50,
+              tagline: true
+            }}
+          />
+        </div>
+      )}
+
+      {!isPending && !isResolved && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            PayPal is loading. Please wait a moment and refresh if this persists.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="text-center text-sm text-gray-600 space-y-1">
         <p>💳 Pay with PayPal or use your debit/credit card</p>
