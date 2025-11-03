@@ -22,20 +22,8 @@ const PayPalProvider = ({ children }) => {
     clientId: PAYPAL_CLIENT_ID,
     currency: 'USD',
     intent: 'capture',
-    // Enable both PayPal and card payments
-    components: 'buttons,marks,messages',
-    // Enable guest checkout for users without PayPal accounts
-    enableFunding: 'paylater,venmo,card',
-    // Disable funding sources you don't want
-    disableFunding: '',
-    // Enable buyer country detection
-    buyerCountry: 'US',
-    // Enable vault for future payments (optional)
-    vault: false,
-    // Enable debug mode for development
-    debug: process.env.NODE_ENV === 'development',
-    // Data namespace to prevent conflicts if SDK is loaded multiple times
-    dataNamespace: 'paypal_sdk_auratech'
+    components: 'buttons',
+    enableFunding: 'card'
   };
 
   return (

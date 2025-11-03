@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PayPalButtons, usePayPalScriptReducer } from '@paypal/react-paypal-js';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createOrder } from '../lib/orderService';
 import { Alert, AlertDescription } from './ui/alert';
-import { Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
 const WorkingPayPalButton = ({ 
   shippingInfo, 
@@ -19,8 +19,6 @@ const WorkingPayPalButton = ({
   const [orderStatus, setOrderStatus] = useState(null);
   const [{ isPending, isResolved }] = usePayPalScriptReducer();
   
-  const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-
   // Calculate order total
   const calculateOrderTotal = () => {
     const subtotal = getTotalPrice();
@@ -132,12 +130,10 @@ const WorkingPayPalButton = ({
     setOrderStatus(null);
   };
 
-  // Don't render if no items or user
   if (!items.length || !currentUser) {
-    return null; // Don't show anything, let checkout page handle it
+    return null;
   }
 
-  // Validate shipping - but still show button with warning
   const shippingIncomplete = !shippingInfo.fullName || !shippingInfo.email || !shippingInfo.address || !shippingInfo.city || !shippingInfo.state || !shippingInfo.zipCode;
 
   return (
@@ -167,16 +163,12 @@ const WorkingPayPalButton = ({
         </Alert>
       )}
 
-      {isPending && (
-        <Alert>
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <AlertDescription>
-            Loading PayPal checkout button...
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {isResolved && (
+      {isPending ? (
+        <div className="flex items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-3" />
+          <span className="text-gray-600">Loading PayPal checkout...</span>
+        </div>
+      ) : isResolved ? (
         <div className="relative">
           {isProcessing && (
             <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
@@ -187,41 +179,29 @@ const WorkingPayPalButton = ({
             </div>
           )}
           
-          <PayPalButtons
-            createOrder={createPayPalOrder}
-            onApprove={onApprove}
-            onError={onError}
-            onCancel={onCancel}
-            style={{
-              layout: 'vertical',
-              color: 'blue',
-              shape: 'rect',
-              label: 'paypal',
-              height: 50,
-              tagline: true
-            }}
-          />
+          <div className="border-2 border-gray-200 rounded-lg p-4">
+            <PayPalButtons
+              createOrder={createPayPalOrder}
+              onApprove={onApprove}
+              onError={onError}
+              onCancel={onCancel}
+              style={{
+                layout: 'vertical',
+                color: 'blue',
+                shape: 'rect',
+                label: 'paypal',
+                height: 50,
+                tagline: true
+              }}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center justify-center p-8 border-2 border-dashed border-red-300 rounded-lg bg-red-50">
+          <XCircle className="h-6 w-6 text-red-600 mr-3" />
+          <span className="text-red-600">PayPal is not ready. Please refresh the page.</span>
         </div>
       )}
-
-      {!isPending && !isResolved && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            PayPal is loading. Please wait a moment and refresh if this persists.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <div className="text-center text-sm text-gray-600 space-y-1">
-        <p>💳 Pay with PayPal or use your debit/credit card</p>
-        <p>🔒 Secure payment processing by PayPal</p>
-        <p>📧 You'll receive an email confirmation after payment</p>
-        <p className="font-semibold text-gray-800">💰 Order total: ${calculateOrderTotal()} (includes tax & shipping)</p>
-        {isProduction && (
-          <p className="text-green-600 font-medium">✅ Production environment - Full PayPal functionality enabled</p>
-        )}
-      </div>
     </div>
   );
 };
