@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { PayPalButtons, PayPalMarks } from '@paypal/react-paypal-js';
+import { PayPalButtons, PayPalMarks, usePayPalScriptReducer } from '@paypal/react-paypal-js';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { createOrder } from '../lib/orderService';
 import { Alert, AlertDescription } from './ui/alert';
-import { Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
 const WorkingPayPalButton = ({ 
   shippingInfo, 
@@ -18,9 +18,21 @@ const WorkingPayPalButton = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderStatus, setOrderStatus] = useState(null); // 'success', 'error', null
   const [paymentDetails, setPaymentDetails] = useState(null);
+  const [{ isPending, isResolved, isRejected }] = usePayPalScriptReducer();
   
   // Detect if running in production (Vercel/Netlify) or localhost
   const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+  // Debug PayPal SDK loading status
+  useEffect(() => {
+    console.log('💳 PayPal SDK Status:', { isPending, isResolved, isRejected });
+    if (isResolved) {
+      console.log('✅ PayPal SDK loaded and ready!');
+    }
+    if (isRejected) {
+      console.error('❌ PayPal SDK failed to load');
+    }
+  }, [isPending, isResolved, isRejected]);
 
   // Calculate order total including shipping and tax
   const calculateOrderTotal = () => {
@@ -183,7 +195,14 @@ const WorkingPayPalButton = ({
 
   // Don't render if no items or user not logged in
   if (!items.length || !currentUser) {
-    return null;
+    return (
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          {!items.length ? 'Please add items to your cart first.' : 'Please sign in to continue with payment.'}
+        </AlertDescription>
+      </Alert>
+    );
   }
 
   // Validate shipping info
@@ -205,6 +224,26 @@ const WorkingPayPalButton = ({
         <PayPalMarks />
       </div>
 
+      {/* PayPal SDK Loading State */}
+      {isPending && (
+        <Alert>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <AlertDescription>
+            Loading PayPal checkout...
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* PayPal SDK Error State */}
+      {isRejected && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to load PayPal. Please refresh the page and try again. If the problem persists, contact support.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Order Status Messages */}
       {orderStatus === 'success' && (
         <Alert className="border-green-200 bg-green-50">
@@ -224,46 +263,59 @@ const WorkingPayPalButton = ({
         </Alert>
       )}
 
-      {/* PayPal Buttons */}
-      <div className="relative">
-        {isProcessing && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
-            <div className="flex items-center gap-2 text-blue-600">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="font-medium">Processing payment...</span>
+      {/* PayPal Buttons - Only show when SDK is loaded */}
+      {isResolved && (
+        <div className="relative">
+          {isProcessing && (
+            <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
+              <div className="flex items-center gap-2 text-blue-600">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="font-medium">Processing payment...</span>
+              </div>
             </div>
-          </div>
-        )}
-        
-        <PayPalButtons
-          createOrder={createPayPalOrder}
-          onApprove={onApprove}
-          onError={onError}
-          onCancel={onCancel}
-          style={{
-            layout: 'vertical',
-            color: 'blue',
-            shape: 'rect',
-            label: 'paypal',
-            height: 45,
-            tagline: true
-          }}
-          fundingSource={undefined} // Allow both PayPal and cards
-        />
-      </div>
+          )}
+          
+          <PayPalButtons
+            createOrder={createPayPalOrder}
+            onApprove={onApprove}
+            onError={onError}
+            onCancel={onCancel}
+            style={{
+              layout: 'vertical',
+              color: 'blue',
+              shape: 'rect',
+              label: 'paypal',
+              height: 45,
+              tagline: true
+            }}
+            fundingSource={undefined} // Allow both PayPal and cards
+          />
+        </div>
+      )}
 
-      {/* Payment Options Info */}
-      <div className="text-center text-sm text-gray-600 space-y-1">
-        <p>💳 Pay with PayPal or use your debit/credit card</p>
-        <p>🔒 Secure payment processing by PayPal</p>
-        <p>📧 You'll receive an email confirmation after payment</p>
-        <p>💰 Order total: ${calculateOrderTotal()} (includes tax and shipping)</p>
-        {isProduction ? (
-          <p className="text-green-600 font-medium">✅ Production environment - Full PayPal functionality enabled</p>
-        ) : (
-          <p className="text-blue-600 font-medium">⚠️ Development mode - Deploy to Vercel for full PayPal functionality</p>
-        )}
-      </div>
+      {/* Payment Options Info - Only show when SDK is ready */}
+      {isResolved && (
+        <div className="text-center text-sm text-gray-600 space-y-1">
+          <p>💳 Pay with PayPal or use your debit/credit card</p>
+          <p>🔒 Secure payment processing by PayPal</p>
+          <p>📧 You'll receive an email confirmation after payment</p>
+          <p>💰 Order total: ${calculateOrderTotal()} (includes tax and shipping)</p>
+          {isProduction ? (
+            <p className="text-green-600 font-medium">✅ Production environment - Full PayPal functionality enabled</p>
+          ) : (
+            <p className="text-blue-600 font-medium">⚠️ Development mode - Deploy to Vercel for full PayPal functionality</p>
+          )}
+        </div>
+      )}
+
+      {/* Show error message if SDK failed to load */}
+      {isRejected && (
+        <div className="text-center text-sm text-red-600 space-y-1">
+          <p>❌ PayPal checkout is temporarily unavailable</p>
+          <p>Please refresh the page or try again in a moment</p>
+          <p>If the problem persists, please contact support</p>
+        </div>
+      )}
     </div>
   );
 };
