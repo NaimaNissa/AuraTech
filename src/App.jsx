@@ -57,8 +57,22 @@ function App() {
       setCurrentPage('contact');
     } else if (path === '/wishlist') {
       setCurrentPage('wishlist');
+      setProductId('');
+      setSearchQuery('');
+      setSelectedCategory('');
     } else if (path === '/paypal-test') {
       setCurrentPage('paypal-test');
+      setProductId('');
+      setSearchQuery('');
+      setSelectedCategory('');
+    } else {
+      // Unknown route - redirect to home
+      console.log('⚠️ Unknown route:', path, '- redirecting to home');
+      window.history.replaceState({}, '', '/');
+      setCurrentPage('home');
+      setProductId('');
+      setSearchQuery('');
+      setSelectedCategory('');
     }
   }, []);
 

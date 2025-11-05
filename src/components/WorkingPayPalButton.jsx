@@ -19,18 +19,42 @@ const WorkingPayPalButton = ({
   const [orderStatus, setOrderStatus] = useState(null);
   const [{ isPending, isResolved }] = usePayPalScriptReducer();
   
+  // Validate shipping form before creating PayPal order
+  const validateShippingForm = () => {
+    const missingFields = [];
+    if (!shippingInfo.fullName) missingFields.push('Full Name');
+    if (!shippingInfo.email) missingFields.push('Email');
+    if (!shippingInfo.contact) missingFields.push('Phone Number');
+    if (!shippingInfo.address) missingFields.push('Address');
+    if (!shippingInfo.city) missingFields.push('City');
+    if (!shippingInfo.state) missingFields.push('State');
+    if (!shippingInfo.zipCode) missingFields.push('ZIP Code');
+    if (!shippingInfo.country) missingFields.push('Country');
+    
+    return {
+      isValid: missingFields.length === 0,
+      missingFields
+    };
+  };
+
   // Calculate order total
   const calculateOrderTotal = () => {
     const subtotal = getTotalPrice();
-    const tax = (subtotal + shippingCost) * 0.08;
-    return (subtotal + shippingCost + tax).toFixed(2);
+    return (subtotal + shippingCost).toFixed(2);
   };
 
   // Create PayPal order
   const createPayPalOrder = (data, actions) => {
+    // Validate shipping form before creating order
+    const validation = validateShippingForm();
+    if (!validation.isValid) {
+      const missingFieldsStr = validation.missingFields.join(', ');
+      alert(`Please complete all shipping information before proceeding.\n\nMissing fields: ${missingFieldsStr}`);
+      throw new Error(`Shipping form incomplete. Missing: ${missingFieldsStr}`);
+    }
+
     const orderTotal = calculateOrderTotal();
     const subtotal = getTotalPrice();
-    const tax = (subtotal + shippingCost) * 0.08;
 
     return actions.order.create({
       purchase_units: [{
@@ -39,12 +63,11 @@ const WorkingPayPalButton = ({
           value: orderTotal,
           breakdown: {
             item_total: { currency_code: 'USD', value: subtotal.toFixed(2) },
-            shipping: { currency_code: 'USD', value: shippingCost.toFixed(2) },
-            tax_total: { currency_code: 'USD', value: tax.toFixed(2) }
+            shipping: { currency_code: 'USD', value: shippingCost.toFixed(2) }
           }
         },
         items: items.map(item => ({
-          name: item.name,
+          name: item.name && item.name.length > 127 ? item.name.substring(0, 127) : (item.name || 'Product'),
           unit_amount: { currency_code: 'USD', value: item.price.toFixed(2) },
           quantity: item.quantity.toString(),
           category: 'PHYSICAL_GOODS'
@@ -134,7 +157,15 @@ const WorkingPayPalButton = ({
     return null;
   }
 
-  const shippingIncomplete = !shippingInfo.fullName || !shippingInfo.email || !shippingInfo.address || !shippingInfo.city || !shippingInfo.state || !shippingInfo.zipCode;
+  // Validate shipping information
+  const shippingIncomplete = !shippingInfo.fullName || 
+                              !shippingInfo.email || 
+                              !shippingInfo.contact ||
+                              !shippingInfo.address || 
+                              !shippingInfo.city || 
+                              !shippingInfo.state || 
+                              !shippingInfo.zipCode ||
+                              !shippingInfo.country;
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -142,7 +173,9 @@ const WorkingPayPalButton = ({
         <Alert variant="destructive">
           <XCircle className="h-4 w-4" />
           <AlertDescription>
-            Please complete all shipping information before proceeding with payment.
+            <strong>Please complete all shipping information before proceeding with payment.</strong>
+            <br />
+            Please fill in all required fields in the shipping form above.
           </AlertDescription>
         </Alert>
       )}
@@ -179,20 +212,28 @@ const WorkingPayPalButton = ({
             </div>
           )}
           
-          <div className="border-2 border-gray-200 rounded-lg p-4">
-          <PayPalButtons
-            createOrder={createPayPalOrder}
-            onApprove={onApprove}
-            onError={onError}
-            onCancel={onCancel}
-            style={{
-              layout: 'vertical',
-              color: 'blue',
-              shape: 'rect',
-              label: 'paypal',
-              height: 50
-            }}
-          />
+          <div className={`border-2 rounded-lg p-4 ${shippingIncomplete ? 'border-red-300 bg-red-50 opacity-50 pointer-events-none' : 'border-gray-200'}`}>
+            {shippingIncomplete ? (
+              <div className="text-center py-4">
+                <XCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
+                <p className="text-red-600 font-medium">Please complete shipping information above</p>
+                <p className="text-sm text-red-500 mt-1">Fill in all required fields to enable payment</p>
+              </div>
+            ) : (
+              <PayPalButtons
+                createOrder={createPayPalOrder}
+                onApprove={onApprove}
+                onError={onError}
+                onCancel={onCancel}
+                style={{
+                  layout: 'vertical',
+                  color: 'blue',
+                  shape: 'rect',
+                  label: 'paypal',
+                  height: 50
+                }}
+              />
+            )}
           </div>
         </div>
       ) : (

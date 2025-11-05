@@ -9,6 +9,7 @@ import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Separator } from '../components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '../components/ui/radio-group';
+import { Alert, AlertDescription } from '../components/ui/alert';
 import { 
   ArrowLeft, 
   Lock, 
@@ -19,7 +20,8 @@ import {
   Phone,
   Building,
   CheckCircle,
-  Loader2
+  Loader2,
+  XCircle
 } from 'lucide-react';
 import WorkingPayPalButton from '../components/WorkingPayPalButton';
 
@@ -39,19 +41,17 @@ export default function CheckoutPage({ onNavigate }) {
     city: '',
     state: '',
     zipCode: '',
-    country: 'United States'
+    country: '' // Will be set from dashboard countries
   });
 
   const [shippingCost, setShippingCost] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('paypal');
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
+  const [isLoadingShipping, setIsLoadingShipping] = useState(false);
   const [dashboardShippingCosts, setDashboardShippingCosts] = useState({});
   const [dashboardCountries, setDashboardCountries] = useState([]);
   const [loadingShippingData, setLoadingShippingData] = useState(true);
-  
-  // Detect if running in production (Vercel/Netlify) or localhost
-  const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
   // Load dashboard shipping costs and countries
   useEffect(() => {
@@ -71,10 +71,15 @@ export default function CheckoutPage({ onNavigate }) {
         setDashboardShippingCosts(costs);
         setDashboardCountries(countries);
         
-        // Set default country if available
-        if (countries.length > 0 && !shippingInfo.country) {
-          const defaultCountry = countries.find(c => c.name === 'United States') || countries[0];
-          setShippingInfo(prev => ({ ...prev, country: defaultCountry.name }));
+        // Set default country from dashboard (first country available)
+        if (countries.length > 0) {
+          // Only set default if no country is currently selected, or if current country is not in dashboard
+          const currentCountryExists = countries.find(c => c.name === shippingInfo.country);
+          if (!shippingInfo.country || !currentCountryExists) {
+            const defaultCountry = countries[0]; // Use first country from dashboard
+            console.log('🔄 Setting default country from dashboard:', defaultCountry.name);
+            setShippingInfo(prev => ({ ...prev, country: defaultCountry.name }));
+          }
         }
         
       } catch (error) {
@@ -89,52 +94,116 @@ export default function CheckoutPage({ onNavigate }) {
   }, []);
 
   // Calculate shipping cost based on dashboard settings
+  // When country is selected in shipping information, look up cost from dashboard
   useEffect(() => {
-    const calculateShipping = () => {
-      const country = shippingInfo.country;
-      const countryKey = country.toLowerCase();
-      const costData = dashboardShippingCosts[countryKey];
-      
-      console.log('🚚 Calculating shipping for:', country, 'Key:', countryKey);
-      console.log('🚚 Cost data found:', costData);
-      
-      if (costData && costData.isActive) {
-        setShippingCost(costData.cost);
-        console.log('✅ Using dashboard shipping cost:', costData.cost);
-      } else {
-        // Fallback to default costs if not found in dashboard
-        let cost = 0;
-        if (country === 'United States') {
-          cost = 0;
-        } else if (country === 'Canada') {
-          cost = 15;
-        } else if (country === 'United Kingdom') {
-          cost = 20;
-        } else if (['Germany', 'France', 'Italy', 'Spain'].includes(country)) {
-          cost = 25;
-        } else if (country === 'Australia') {
-          cost = 30;
-        } else if (['Bangladesh', 'India', 'Pakistan'].includes(country)) {
-          cost = 35;
-        } else {
-          cost = 40;
-        }
-        setShippingCost(cost);
-        console.log('⚠️ Using fallback shipping cost:', cost);
-      }
-    };
-    
-    if (!loadingShippingData) {
-      calculateShipping();
+    if (!shippingInfo.country) {
+      console.log('⚠️ No country selected');
+      setShippingCost(0);
+      return;
     }
-  }, [shippingInfo.country, dashboardShippingCosts, loadingShippingData]);
+    
+    console.log('🔄🔄🔄 CALCULATING SHIPPING COST');
+    console.log('📍 Selected country:', shippingInfo.country);
+    console.log('📊 Dashboard countries available:', dashboardCountries.length);
+    console.log('📊 Dashboard countries:', dashboardCountries);
+    console.log('📊 Dashboard costs available:', Object.keys(dashboardShippingCosts).length);
+    
+    // First priority: Find cost from dashboardCountries (same source as dropdown)
+    if (dashboardCountries.length > 0) {
+      const countryKey = shippingInfo.country.toLowerCase().trim();
+      console.log('🔑 Looking for country key:', countryKey);
+      
+      const countryMatch = dashboardCountries.find(c => {
+        const cName = c.name.toLowerCase().trim();
+        const match = cName === countryKey;
+        console.log(`  Comparing: "${cName}" === "${countryKey}" → ${match}`);
+        if (match) {
+          console.log(`  ✅ MATCH FOUND! Country: ${c.name}, Cost: ${c.cost}`);
+        }
+        return match;
+      });
+      
+      if (countryMatch) {
+        console.log('✅ Found country match:', countryMatch);
+        if (countryMatch.cost !== undefined && countryMatch.cost !== null) {
+          const cost = parseFloat(countryMatch.cost);
+          if (!isNaN(cost)) {
+            console.log('✅✅✅ SETTING SHIPPING COST:', cost, 'for', countryMatch.name);
+            setShippingCost(cost);
+            return;
+          } else {
+            console.log('❌ Cost is NaN:', countryMatch.cost);
+          }
+        } else {
+          console.log('❌ Country match found but cost is undefined/null:', countryMatch);
+        }
+      } else {
+        console.log('❌ No match found in dashboardCountries for:', shippingInfo.country);
+        console.log('📋 Available countries:', dashboardCountries.map(c => `${c.name} (${c.cost})`));
+      }
+    } else {
+      console.log('⚠️ dashboardCountries is empty, waiting for data to load...');
+    }
+    
+    // Second priority: Try to get cost from dashboardShippingCosts
+    if (Object.keys(dashboardShippingCosts).length > 0) {
+      const countryKey = shippingInfo.country.toLowerCase().trim();
+      console.log('🔍 Looking in dashboardShippingCosts for:', countryKey);
+      const costData = dashboardShippingCosts[countryKey];
+      console.log('  Result:', costData);
+      
+      if (costData && costData.isActive && costData.cost !== undefined && costData.cost !== null) {
+        const cost = parseFloat(costData.cost);
+        if (!isNaN(cost)) {
+          console.log('✅✅✅ SETTING SHIPPING COST FROM dashboardShippingCosts:', cost, 'for', shippingInfo.country);
+          setShippingCost(cost);
+          return;
+        }
+      } else {
+        console.log('❌ No active cost data found in dashboardShippingCosts for:', countryKey);
+        console.log('📋 Available keys:', Object.keys(dashboardShippingCosts));
+      }
+    }
+    
+    // Fallback to default costs if no match found
+    console.log('⚠️ No match found in dashboard data, using fallback costs');
+    let cost = 0;
+    if (shippingInfo.country === 'United States') {
+      cost = 0;
+    } else if (shippingInfo.country === 'Canada') {
+      cost = 15;
+    } else if (shippingInfo.country === 'United Kingdom') {
+      cost = 20;
+    } else if (['Germany', 'France', 'Italy', 'Spain'].includes(shippingInfo.country)) {
+      cost = 25;
+    } else if (shippingInfo.country === 'Australia') {
+      cost = 30;
+    } else if (['Bangladesh', 'India', 'Pakistan'].includes(shippingInfo.country)) {
+      cost = 35;
+    } else {
+      cost = 40;
+    }
+    console.log('⚠️ Using fallback shipping cost:', cost, 'for', shippingInfo.country);
+    setShippingCost(cost);
+  }, [shippingInfo.country, dashboardCountries, dashboardShippingCosts]);
 
   const handleInputChange = (field, value) => {
     setShippingInfo(prev => ({
       ...prev,
       [field]: value
     }));
+    // The useEffect will automatically update shipping cost when country changes
   };
+
+  // Check if shipping form is incomplete
+  const isShippingFormIncomplete = !shippingInfo.fullName || 
+                                    !shippingInfo.email || 
+                                    !shippingInfo.contact ||
+                                    !shippingInfo.address || 
+                                    !shippingInfo.city || 
+                                    !shippingInfo.state || 
+                                    !shippingInfo.zipCode ||
+                                    !shippingInfo.country;
 
   const handlePayPalSuccess = async (orderData) => {
     try {
@@ -176,11 +245,20 @@ export default function CheckoutPage({ onNavigate }) {
     try {
       setIsProcessing(true);
       
-      // Validate required fields
-      if (!shippingInfo.fullName || !shippingInfo.email || !shippingInfo.contact || 
-          !shippingInfo.address || !shippingInfo.city || !shippingInfo.state || 
-          !shippingInfo.zipCode || !shippingInfo.country) {
-        alert('Please fill in all required shipping information fields.');
+      // Validate required fields with detailed message
+      const missingFields = [];
+      if (!shippingInfo.fullName) missingFields.push('Full Name');
+      if (!shippingInfo.email) missingFields.push('Email');
+      if (!shippingInfo.contact) missingFields.push('Phone Number');
+      if (!shippingInfo.address) missingFields.push('Address');
+      if (!shippingInfo.city) missingFields.push('City');
+      if (!shippingInfo.state) missingFields.push('State');
+      if (!shippingInfo.zipCode) missingFields.push('ZIP Code');
+      if (!shippingInfo.country) missingFields.push('Country');
+      
+      if (missingFields.length > 0) {
+        const missingFieldsStr = missingFields.join(', ');
+        alert(`Please complete all shipping information before proceeding.\n\nMissing fields: ${missingFieldsStr}`);
         setIsProcessing(false);
         return;
       }
@@ -250,8 +328,7 @@ export default function CheckoutPage({ onNavigate }) {
   }
 
   const subtotal = getTotalPrice();
-  const tax = (subtotal + shippingCost) * 0.08; // 8% tax
-  const total = subtotal + shippingCost + tax;
+  const total = subtotal + shippingCost;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -474,12 +551,8 @@ export default function CheckoutPage({ onNavigate }) {
                       <span>${subtotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Shipping ({shippingInfo.country})</span>
+                      <span>Shipping cost</span>
                       <span>${shippingCost.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Tax (8%)</span>
-                      <span>${tax.toFixed(2)}</span>
                     </div>
                   <Separator />
                     <div className="flex justify-between text-lg font-bold">
@@ -496,27 +569,6 @@ export default function CheckoutPage({ onNavigate }) {
               <CardContent className="pt-6">
                 {paymentMethod === 'paypal' ? (
                   <div className="space-y-4">
-                    {isProduction ? (
-                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                      <h4 className="font-semibold text-green-800 mb-2">💳 PayPal Payment</h4>
-                      <p className="text-sm text-green-700 mb-2">
-                        <strong>✅ Production Ready:</strong> PayPal is fully functional with secure HTTPS processing.
-                      </p>
-                      <p className="text-sm text-green-700">
-                        Pay with your PayPal account or use any debit/credit card through PayPal's secure payment system.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <h4 className="font-semibold text-blue-800 mb-2">💳 PayPal Payment</h4>
-                      <p className="text-sm text-blue-700 mb-2">
-                        <strong>Development Mode:</strong> PayPal works best when deployed to production with HTTPS.
-                      </p>
-                      <p className="text-sm text-blue-700">
-                        For local testing, you can use the manual payment option below, or deploy to Vercel/Netlify for full PayPal functionality.
-                      </p>
-                    </div>
-                  )}
                     <WorkingPayPalButton
                       shippingInfo={shippingInfo}
                       shippingCost={shippingCost}
@@ -529,17 +581,27 @@ export default function CheckoutPage({ onNavigate }) {
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {isShippingFormIncomplete && (
+                      <Alert variant="destructive">
+                        <XCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Please complete all shipping information before proceeding with payment.</strong>
+                          <br />
+                          Please fill in all required fields in the shipping form above.
+                        </AlertDescription>
+                      </Alert>
+                    )}
                     <div className="text-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                       <p className="text-yellow-800 text-sm">
                         You will be contacted for payment details after placing your order.
                       </p>
-                  </div>
+                    </div>
                     <Button
                       onClick={handleManualOrder}
-                      disabled={isProcessing}
-                      className="w-full"
+                      disabled={isProcessing || isShippingFormIncomplete}
+                      className={`w-full ${isShippingFormIncomplete ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
-                      {isProcessing ? 'Processing...' : 'Place Order'}
+                      {isProcessing ? 'Processing...' : isShippingFormIncomplete ? 'Complete Shipping Information First' : 'Place Order'}
                     </Button>
                   </div>
                 )}
