@@ -670,9 +670,9 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                   </span>
                 )}
               </div>
-              {product.tax !== undefined && product.tax !== null && (
+              {product.tax && Array.isArray(product.tax) && product.tax.length > 0 && (
                 <p className="text-sm text-gray-500">
-                  Tax: ${parseFloat(product.tax || 0).toFixed(2)} per unit
+                  Tax varies by quantity
                 </p>
               )}
               <p className="text-sm text-gray-600">

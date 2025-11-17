@@ -99,9 +99,29 @@ export function CartProvider({ children }) {
     return state.items.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
+  // Get tax for a specific quantity from tax array
+  const getTaxForQuantity = (taxArray, quantity) => {
+    if (!taxArray || !Array.isArray(taxArray) || taxArray.length === 0) {
+      return 0;
+    }
+    
+    // Sort by quantity descending to find the closest match
+    const sortedTax = [...taxArray].sort((a, b) => b.quantity - a.quantity);
+    
+    // Find the tax entry with quantity <= requested quantity
+    for (const taxEntry of sortedTax) {
+      if (taxEntry.quantity <= quantity) {
+        return parseFloat(taxEntry.taxAmount) || 0;
+      }
+    }
+    
+    // If no match found, return 0
+    return 0;
+  };
+
   const getTotalTax = () => {
     return state.items.reduce((total, item) => {
-      const itemTax = (item.tax || 0) * item.quantity;
+      const itemTax = getTaxForQuantity(item.tax, item.quantity);
       return total + itemTax;
     }, 0);
   };
@@ -119,7 +139,7 @@ export function CartProvider({ children }) {
       
       // Create an order for each item in the cart
       for (const item of state.items) {
-        const itemTax = (item.tax || 0) * item.quantity;
+        const itemTax = getTaxForQuantity(item.tax, item.quantity);
         const orderData = {
           fullName: customerInfo.fullName,
           email: customerInfo.email,
@@ -166,6 +186,7 @@ export function CartProvider({ children }) {
     clearCart,
     getTotalPrice,
     getTotalTax,
+    getTaxForQuantity,
     getTotalItems,
     createOrderFromCart
   };

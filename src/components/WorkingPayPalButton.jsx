@@ -13,7 +13,7 @@ const WorkingPayPalButton = ({
   onOrderError,
   className = "" 
 }) => {
-  const { items, getTotalPrice, getTotalTax, clearCart } = useCart();
+  const { items, getTotalPrice, getTotalTax, getTaxForQuantity, clearCart } = useCart();
   const { currentUser } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderStatus, setOrderStatus] = useState(null);

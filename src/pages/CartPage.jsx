@@ -25,7 +25,7 @@ import { getShippingCostForCountry, getAllCountries } from '../lib/shippingServi
 import { getDashboardCountries, getDashboardShippingCosts } from '../lib/countryShippingService';
 
 export default function CartPage({ onNavigate }) {
-  const { items, updateQuantity, removeItem, getTotalPrice, getTotalTax, getTotalItems, clearCart } = useCart();
+  const { items, updateQuantity, removeItem, getTotalPrice, getTotalTax, getTaxForQuantity, getTotalItems, clearCart } = useCart();
   const [selectedCountry, setSelectedCountry] = useState('');
   const [shippingCost, setShippingCost] = useState(0);
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
@@ -173,6 +173,14 @@ export default function CartPage({ onNavigate }) {
                       <h3 className="font-semibold text-lg">{item.name}</h3>
                       <p className="text-gray-600">{item.brand}</p>
                       <p className="text-blue-600 font-semibold">{formatPrice(item.price)}</p>
+                      {item.tax && Array.isArray(item.tax) && item.tax.length > 0 && (() => {
+                        const itemTax = getTaxForQuantity(item.tax, item.quantity);
+                        return itemTax > 0 ? (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Tax (Qty {item.quantity}): {formatPrice(itemTax)}
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
 
                     <div className="flex items-center space-x-2">

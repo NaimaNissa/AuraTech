@@ -407,9 +407,9 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
               <span className="text-xs sm:text-sm text-gray-500 line-through">${product.originalPrice}</span>
             )}
           </div>
-          {product.tax !== undefined && product.tax !== null && (
+          {product.tax && Array.isArray(product.tax) && product.tax.length > 0 && (
             <p className="text-xs sm:text-sm text-gray-500 mt-1">
-              Tax: ${parseFloat(product.tax || 0).toFixed(2)} per unit
+              Tax varies by quantity
             </p>
           )}
         </div>
@@ -489,9 +489,9 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
                     <span className="text-lg text-gray-500 line-through">${product.originalPrice}</span>
                   )}
                 </div>
-                {product.tax !== undefined && product.tax !== null && (
+                {product.tax && Array.isArray(product.tax) && product.tax.length > 0 && (
                   <p className="text-sm text-gray-500 mt-1">
-                    Tax: ${parseFloat(product.tax || 0).toFixed(2)} per unit
+                    Tax varies by quantity
                   </p>
                 )}
               </div>

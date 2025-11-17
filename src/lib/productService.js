@@ -236,7 +236,7 @@ const generateDefaultFeatures = (product) => {
     features: firebaseProduct.KeyFeatures ? firebaseProduct.KeyFeatures.split(',').map(f => f.trim()).filter(f => f) : generateDefaultFeatures(firebaseProduct),
     colors: firebaseProduct.Colors ? firebaseProduct.Colors.split(',').map(c => c.trim()).filter(c => c) : [],
     colorImages: getColorImages(firebaseProduct), // New field for color-based images
-    tax: parseFloat(firebaseProduct.tax) || 0, // Tax amount per unit
+    tax: firebaseProduct.tax || [], // Tax array: [{quantity: number, taxAmount: number}]
     // Store the raw Firebase data for color-based images
     rawData: firebaseProduct,
     createdAt: firebaseProduct.createdAt,

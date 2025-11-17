@@ -29,7 +29,7 @@ import WorkingPayPalButton from '../components/WorkingPayPalButton';
 import { verifyAddress } from '../lib/addressVerificationService';
 
 export default function CheckoutPage({ onNavigate }) {
-  const { items, getTotalPrice, getTotalTax, createOrderFromCart, clearCart } = useCart();
+  const { items, getTotalPrice, getTotalTax, getTaxForQuantity, createOrderFromCart, clearCart } = useCart();
   const { currentUser } = useAuth();
   
   console.log('🛒 CheckoutPage - Cart items:', items);
@@ -699,22 +699,31 @@ export default function CheckoutPage({ onNavigate }) {
                 </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                      {items.map((item) => (
-                    <div key={item.id} className="flex items-center space-x-4">
-                      <img
-                        src={item.image || '/placeholder-product.jpg'}
-                        alt={item.name}
-                        className="w-16 h-16 object-cover rounded"
-                      />
-                          <div className="flex-1">
-                        <h3 className="font-medium">{item.name}</h3>
-                        <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium">${(item.price * item.quantity).toFixed(2)}</p>
+                      {items.map((item) => {
+                        const itemTax = getTaxForQuantity(item.tax, item.quantity);
+                        const itemTotal = (item.price * item.quantity) + itemTax;
+                        return (
+                          <div key={item.id} className="flex items-center space-x-4">
+                            <img
+                              src={item.image || '/placeholder-product.jpg'}
+                              alt={item.name}
+                              className="w-16 h-16 object-cover rounded"
+                            />
+                            <div className="flex-1">
+                              <h3 className="font-medium">{item.name}</h3>
+                              <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
+                              {itemTax > 0 && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Tax (Qty {item.quantity}): ${itemTax.toFixed(2)}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="font-medium">${itemTotal.toFixed(2)}</p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
 
                   <Separator />
 
