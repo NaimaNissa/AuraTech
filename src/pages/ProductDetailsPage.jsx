@@ -652,11 +652,6 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                     Free Shipping
                   </Badge>
                 )}
-                {product.discount > 0 && (
-                  <Badge className="bg-red-100 text-red-800">
-                    {product.discount}% OFF
-                  </Badge>
-                )}
               </div>
               
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
@@ -686,7 +681,7 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
             <div className="space-y-2">
               <div className="flex items-center space-x-3">
                 <span className="text-3xl font-bold text-gray-900">
-                  ${currentPrice}
+                  ${currentPrice.toFixed(2)}
                 </span>
                 {product.discount > 0 && product.originalPrice > currentPrice && (
                   <span className="text-xl text-gray-500 line-through">
