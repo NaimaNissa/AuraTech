@@ -377,9 +377,12 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
         {!product.inStock && (
           <Badge className="absolute top-2 left-2 bg-red-500">Out of Stock</Badge>
         )}
-        {product.originalPrice > product.price && (
+        {product.freeShipping && (
+          <Badge className="absolute top-2 left-2 bg-blue-500">Free Shipping</Badge>
+        )}
+        {(product.discount > 0 || product.originalPrice > product.price) && (
           <Badge className="absolute top-2 right-2 bg-green-500">
-            Save ${product.originalPrice - product.price}
+            {product.discount > 0 ? `${product.discount}% OFF` : `Save $${(product.originalPrice - product.price).toFixed(2)}`}
           </Badge>
         )}
         <button className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
@@ -403,8 +406,8 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
         <div className="mb-3">
           <div className="flex items-center space-x-2">
             <span className="text-xl sm:text-2xl font-bold text-blue-600">${product.price}</span>
-            {product.originalPrice > product.price && (
-              <span className="text-xs sm:text-sm text-gray-500 line-through">${product.originalPrice}</span>
+            {product.discount > 0 && product.originalPrice > product.price && (
+              <span className="text-xs sm:text-sm text-gray-500 line-through">${product.originalPrice.toFixed(2)}</span>
             )}
           </div>
           {product.tax && Array.isArray(product.tax) && product.tax.length > 0 && (

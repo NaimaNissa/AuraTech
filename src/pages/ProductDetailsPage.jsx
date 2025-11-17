@@ -65,6 +65,12 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
         console.log('🔍 Fetching product details for ID:', productId);
         const productData = await getProductById(productId);
         console.log('✅ Product data loaded:', productData);
+        console.log('💰 Product price details:', {
+          price: productData.price,
+          originalPrice: productData.originalPrice,
+          discount: productData.discount,
+          rawPrice: productData.rawData?.Price
+        });
         console.log('🔍 Product category details:', {
           category: productData.category,
           type: typeof productData.category,
@@ -354,7 +360,18 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
   const colorData = getColorData();
   const currentColorKey = selectedColor ? selectedColor.toLowerCase().replace(/\s+/g, '') : Object.keys(colorData)[0];
   const currentColorData = colorData[currentColorKey] || colorData[Object.keys(colorData)[0]];
-  const currentPrice = currentColorData?.price || product?.price || 0;
+  
+  // ALWAYS use product.price as the source of truth - it comes directly from the dashboard
+  // Ignore any prices stored in colorImages to ensure consistency
+  const currentPrice = product?.price || 0;
+  
+  console.log('💰 ProductDetailsPage price calculation:', {
+    productPrice: product?.price,
+    colorDataPrice: currentColorData?.price,
+    currentPrice: currentPrice,
+    selectedColor: selectedColor,
+    'Using product.price (dashboard value)': true
+  });
 
   const getCurrentImages = () => {
     if (!product) return [];
@@ -414,7 +431,8 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
       color: selectedColor,
       size: selectedSize,
       quantity: quantity,
-      tax: product.tax || 0
+      tax: product.tax || 0,
+      freeShipping: product.freeShipping || false
     };
     
     const success = addItem(cartItem, () => {
@@ -491,7 +509,8 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
       color: selectedColor,
       size: selectedSize,
       quantity: quantity,
-      tax: product.tax || 0
+      tax: product.tax || 0,
+      freeShipping: product.freeShipping || false
     };
     
     const success = addItem(cartItem, () => {
@@ -628,6 +647,11 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                 <Badge variant="outline" className="border-blue-200 text-blue-800 bg-blue-50">
                   {product.category || 'Uncategorized'}
                 </Badge>
+                {product.freeShipping && (
+                  <Badge className="bg-blue-100 text-blue-800">
+                    Free Shipping
+                  </Badge>
+                )}
                 {product.discount > 0 && (
                   <Badge className="bg-red-100 text-red-800">
                     {product.discount}% OFF
@@ -664,9 +688,9 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                 <span className="text-3xl font-bold text-gray-900">
                   ${currentPrice}
                 </span>
-                {product.originalPrice > currentPrice && (
+                {product.discount > 0 && product.originalPrice > currentPrice && (
                   <span className="text-xl text-gray-500 line-through">
-                    ${product.originalPrice}
+                    ${product.originalPrice.toFixed(2)}
                   </span>
                 )}
               </div>

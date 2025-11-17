@@ -109,6 +109,14 @@ export default function CheckoutPage({ onNavigate }) {
       setShippingCost(0);
       return;
     }
+
+    // Check if all items have free shipping
+    const allItemsFreeShipping = items.length > 0 && items.every(item => item.freeShipping);
+    if (allItemsFreeShipping) {
+      console.log('🎉 All items have free shipping');
+      setShippingCost(0);
+      return;
+    }
     
     console.log('🔄🔄🔄 CALCULATING SHIPPING COST');
     console.log('📍 Selected country:', shippingInfo.country);
@@ -193,7 +201,7 @@ export default function CheckoutPage({ onNavigate }) {
     }
     console.log('⚠️ Using fallback shipping cost:', cost, 'for', shippingInfo.country);
     setShippingCost(cost);
-  }, [shippingInfo.country, dashboardCountries, dashboardShippingCosts]);
+  }, [shippingInfo.country, dashboardCountries, dashboardShippingCosts, items]);
 
   const handleInputChange = (field, value) => {
     setShippingInfo(prev => ({
@@ -740,7 +748,15 @@ export default function CheckoutPage({ onNavigate }) {
                     )}
                     <div className="flex justify-between">
                       <span>Shipping cost</span>
-                      <span>${shippingCost.toFixed(2)}</span>
+                      <span>
+                        {items.length > 0 && items.every(item => item.freeShipping) ? (
+                          <span className="text-green-600 font-medium">Free (All items)</span>
+                        ) : shippingCost === 0 ? (
+                          <span className="text-green-600">Free</span>
+                        ) : (
+                          `$${shippingCost.toFixed(2)}`
+                        )}
+                      </span>
                     </div>
                   <Separator />
                     <div className="flex justify-between text-lg font-bold">

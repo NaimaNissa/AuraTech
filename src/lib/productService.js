@@ -191,9 +191,24 @@ const generateDefaultFeatures = (product) => {
 
   // Parse color images from Firebase data
   const getColorImages = (firebaseProduct) => {
+    // Calculate the correct price first (same logic as main price calculation)
+    const priceFromDB = parseFloat(firebaseProduct.Price) || 0;
+    const discountPercent = firebaseProduct.discount ? parseFloat(firebaseProduct.discount) : 0;
+    const correctPrice = discountPercent > 0 && discountPercent <= 100
+      ? priceFromDB * (1 - discountPercent / 100)
+      : priceFromDB;
+    
     // Check if colorImages field exists in Firebase
     if (firebaseProduct.colorImages && typeof firebaseProduct.colorImages === 'object') {
-      return firebaseProduct.colorImages;
+      // Update prices in existing colorImages to match the correct price
+      const updatedColorImages = {};
+      for (const [key, value] of Object.entries(firebaseProduct.colorImages)) {
+        updatedColorImages[key] = {
+          ...value,
+          price: correctPrice // Always use the correct calculated price
+        };
+      }
+      return updatedColorImages;
     }
     
     // If no color images stored, generate sample images for demonstration
@@ -204,7 +219,7 @@ const generateDefaultFeatures = (product) => {
       const tempProduct = {
         colors: colors,
         image: firebaseProduct.productImg || firebaseProduct.image || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop',
-        price: parseFloat(firebaseProduct.Price) || 0
+        price: correctPrice // Use the correct calculated price
       };
       
       return generateSampleColorImages(tempProduct);
@@ -215,16 +230,45 @@ const generateDefaultFeatures = (product) => {
       default: {
         name: 'Default',
         images: [firebaseProduct.productImg || firebaseProduct.image || 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=400&h=300&fit=crop'],
-        price: parseFloat(firebaseProduct.Price) || 0
+        price: correctPrice // Use the correct calculated price
       }
     };
   };
 
+  // Price field stores the EXACT price entered in dashboard
+  const priceFromDB = parseFloat(firebaseProduct.Price) || 0;
+  const discountPercent = firebaseProduct.discount ? parseFloat(firebaseProduct.discount) : 0;
+  
+  console.log('💰 Price calculation:', {
+    Price: firebaseProduct.Price,
+    priceFromDB,
+    discount: firebaseProduct.discount,
+    discountPercent
+  });
+  
+  // Calculate the displayed price
+  let displayedPrice = priceFromDB; // Always start with the Price field value
+  let originalPrice = priceFromDB;
+  
+  if (discountPercent > 0 && discountPercent <= 100) {
+    // If discount is set, Price field is the ORIGINAL price
+    // Calculate discounted price from original
+    displayedPrice = priceFromDB * (1 - discountPercent / 100);
+    originalPrice = priceFromDB; // Keep original for strikethrough
+    console.log('💰 Discount applied:', { originalPrice: priceFromDB, discountPercent, discountedPrice: displayedPrice });
+  } else {
+    // No discount - show EXACTLY what's in the Price field
+    displayedPrice = priceFromDB;
+    originalPrice = priceFromDB;
+    console.log('💰 No discount - showing exact Price field value:', displayedPrice);
+  }
+
   return {
     id: firebaseProduct.productID || firebaseProduct.id,
     name: firebaseProduct.productname || firebaseProduct.name || 'Unnamed Product',
-    price: parseFloat(firebaseProduct.Price) || 0,
-    originalPrice: parseFloat(firebaseProduct.originalPrice) || parseFloat(firebaseProduct.Price) || 0,
+    price: displayedPrice, // This is what gets displayed
+    discount: discountPercent,
+    originalPrice: discountPercent > 0 ? originalPrice : displayedPrice, // Only show original if discount exists
     category: getCategory(firebaseProduct),
     brand: getBrand(firebaseProduct),
     rating: parseFloat(firebaseProduct.rating) || 4.5,
@@ -237,6 +281,7 @@ const generateDefaultFeatures = (product) => {
     colors: firebaseProduct.Colors ? firebaseProduct.Colors.split(',').map(c => c.trim()).filter(c => c) : [],
     colorImages: getColorImages(firebaseProduct), // New field for color-based images
     tax: firebaseProduct.tax || [], // Tax array: [{quantity: number, taxAmount: number}]
+    freeShipping: firebaseProduct.freeShipping || false, // Free shipping option
     // Store the raw Firebase data for color-based images
     rawData: firebaseProduct,
     createdAt: firebaseProduct.createdAt,
@@ -307,35 +352,71 @@ export const getAllProducts = async () => {
 // Get a single product by ID
 export const getProductById = async (productId) => {
   try {
-    console.log('🔍 Fetching product with ID:', productId);
+    console.log('🔍 Fetching product with ID:', productId, 'Type:', typeof productId);
     
     // Load category mapping
     const categoryMapping = await loadCategoryMapping();
     
-    // First try to query by productID field
-    const productsRef = collection(db, 'products');
-    let q = query(productsRef, where('productID', '==', productId));
-    let snapshot = await getDocs(q);
+    // Try multiple collection names (some systems use "Product" vs "products")
+    const collectionNames = ['products', 'Product'];
     
-    if (!snapshot.empty) {
-      const doc = snapshot.docs[0];
-      const productData = { id: doc.id, ...doc.data() };
-      console.log('✅ Found product by productID:', productData);
-      return await transformProductWithCategoryMapping(productData, categoryMapping);
+    for (const collectionName of collectionNames) {
+      console.log(`🔍 Trying collection: ${collectionName}`);
+      const productsRef = collection(db, collectionName);
+      
+      // First try to query by productID field (as string)
+      let q = query(productsRef, where('productID', '==', String(productId)));
+      let snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const doc = snapshot.docs[0];
+        const productData = { id: doc.id, ...doc.data() };
+        console.log('✅ Found product by productID:', productData);
+        return await transformProductWithCategoryMapping(productData, categoryMapping);
+      }
+      
+      // Try productID as number if productId is numeric
+      if (!isNaN(productId)) {
+        q = query(productsRef, where('productID', '==', Number(productId)));
+        snapshot = await getDocs(q);
+        
+        if (!snapshot.empty) {
+          const doc = snapshot.docs[0];
+          const productData = { id: doc.id, ...doc.data() };
+          console.log('✅ Found product by productID (as number):', productData);
+          return await transformProductWithCategoryMapping(productData, categoryMapping);
+        }
+      }
+      
+      // Try by document ID
+      console.log(`🔍 Trying document ID in collection ${collectionName}...`);
+      const docRef = doc(db, collectionName, String(productId));
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const productData = { id: docSnap.id, ...docSnap.data() };
+        console.log('✅ Found product by document ID:', productData);
+        return await transformProductWithCategoryMapping(productData, categoryMapping);
+      }
     }
     
-    // If not found by productID, try by document ID
-    console.log('🔍 Trying to find by document ID...');
-    const docRef = doc(db, 'products', productId);
-    const docSnap = await getDoc(docRef);
+    // Last resort: Get all products and find by ID manually
+    console.log('🔍 Last resort: Searching all products...');
+    const allProducts = await getAllProducts();
+    const foundProduct = allProducts.find(p => 
+      p.id === productId || 
+      p.id === String(productId) || 
+      p.id === Number(productId) ||
+      (p.rawData && (p.rawData.productID === productId || p.rawData.productID === String(productId) || p.rawData.productID === Number(productId)))
+    );
     
-    if (docSnap.exists()) {
-      const productData = { id: docSnap.id, ...docSnap.data() };
-      console.log('✅ Found product by document ID:', productData);
-      return await transformProductWithCategoryMapping(productData, categoryMapping);
+    if (foundProduct) {
+      console.log('✅ Found product in all products list:', foundProduct);
+      return foundProduct;
     }
     
     console.log('❌ Product not found with ID:', productId);
+    console.log('📋 Available product IDs:', allProducts.map(p => ({ id: p.id, productID: p.rawData?.productID })));
     throw new Error('Product not found');
   } catch (error) {
     console.error('❌ Error fetching product:', error);

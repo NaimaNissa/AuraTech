@@ -60,6 +60,14 @@ export default function CartPage({ onNavigate }) {
     const loadShippingCost = async () => {
       if (!selectedCountry) return;
       
+      // Check if all items have free shipping
+      const allItemsFreeShipping = items.length > 0 && items.every(item => item.freeShipping);
+      if (allItemsFreeShipping) {
+        console.log('🎉 All items have free shipping');
+        setShippingCost(0);
+        return;
+      }
+      
       setIsLoadingShipping(true);
       try {
         console.log('🚚 Loading shipping cost for:', selectedCountry);
@@ -87,7 +95,7 @@ export default function CartPage({ onNavigate }) {
     };
 
     loadShippingCost();
-  }, [selectedCountry]);
+  }, [selectedCountry, items]);
 
   const handleQuantityChange = (productId, newQuantity) => {
     if (newQuantity <= 0) {
@@ -275,6 +283,8 @@ export default function CartPage({ onNavigate }) {
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : !selectedCountry ? (
                         formatPrice(0)
+                      ) : (items.length > 0 && items.every(item => item.freeShipping)) ? (
+                        <span className="text-green-600 font-medium">Free (All items)</span>
                       ) : shippingCost === 0 ? (
                         <span className="text-green-600">Free</span>
                       ) : (
