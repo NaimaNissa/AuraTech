@@ -21,12 +21,15 @@ import {
   Building,
   CheckCircle,
   Loader2,
-  XCircle
+  XCircle,
+  AlertCircle,
+  Check
 } from 'lucide-react';
 import WorkingPayPalButton from '../components/WorkingPayPalButton';
+import { verifyAddress } from '../lib/addressVerificationService';
 
 export default function CheckoutPage({ onNavigate }) {
-  const { items, getTotalPrice, createOrderFromCart, clearCart } = useCart();
+  const { items, getTotalPrice, getTotalTax, createOrderFromCart, clearCart } = useCart();
   const { currentUser } = useAuth();
   
   console.log('🛒 CheckoutPage - Cart items:', items);
@@ -52,6 +55,11 @@ export default function CheckoutPage({ onNavigate }) {
   const [dashboardShippingCosts, setDashboardShippingCosts] = useState({});
   const [dashboardCountries, setDashboardCountries] = useState([]);
   const [loadingShippingData, setLoadingShippingData] = useState(true);
+  
+  // Address verification state
+  const [isVerifyingAddress, setIsVerifyingAddress] = useState(false);
+  const [addressVerification, setAddressVerification] = useState(null);
+  const [isAddressVerified, setIsAddressVerified] = useState(false);
 
   // Load dashboard shipping costs and countries
   useEffect(() => {
@@ -192,7 +200,66 @@ export default function CheckoutPage({ onNavigate }) {
       ...prev,
       [field]: value
     }));
+    // Reset verification when address changes
+    if (['address', 'city', 'state', 'zipCode', 'country'].includes(field)) {
+      setIsAddressVerified(false);
+      setAddressVerification(null);
+    }
     // The useEffect will automatically update shipping cost when country changes
+  };
+
+  // Verify address
+  const handleVerifyAddress = async () => {
+    if (!shippingInfo.address || !shippingInfo.city || !shippingInfo.state || !shippingInfo.zipCode || !shippingInfo.country) {
+      alert('Please fill in all address fields before verifying.');
+      return;
+    }
+
+    setIsVerifyingAddress(true);
+    try {
+      const result = await verifyAddress({
+        address: shippingInfo.address,
+        city: shippingInfo.city,
+        state: shippingInfo.state,
+        zipCode: shippingInfo.zipCode,
+        country: shippingInfo.country
+      });
+
+      setAddressVerification(result);
+      setIsAddressVerified(result.isValid);
+
+      if (!result.isValid && result.suggestions && result.suggestions.length > 0) {
+        // Show suggestion to user
+        console.log('📍 Address verification result:', result);
+      }
+    } catch (error) {
+      console.error('❌ Address verification error:', error);
+      alert('Failed to verify address. Please try again.');
+    } finally {
+      setIsVerifyingAddress(false);
+    }
+  };
+
+  // Accept suggested address
+  const handleAcceptSuggestedAddress = (suggestedAddress) => {
+    // Parse the suggested address and update shipping info
+    // This is a simplified version - you might want to use a more sophisticated parser
+    const parts = suggestedAddress.split(',').map(p => p.trim());
+    
+    // Try to extract components (this is basic - Google's API provides better structured data)
+    if (addressVerification?.verifiedAddress) {
+      const verified = addressVerification.verifiedAddress;
+      setShippingInfo(prev => ({
+        ...prev,
+        address: verified.street || prev.address,
+        city: verified.city || prev.city,
+        state: verified.state || prev.state,
+        zipCode: verified.zipCode || prev.zipCode,
+        country: verified.country || prev.country
+      }));
+      setIsAddressVerified(true);
+      setAddressVerification(prev => ({ ...prev, isValid: true }));
+    }
   };
 
   // Check if shipping form is incomplete
@@ -205,6 +272,14 @@ export default function CheckoutPage({ onNavigate }) {
                                     !shippingInfo.zipCode ||
                                     !shippingInfo.country;
 
+  // Check if address needs verification
+  const needsAddressVerification = shippingInfo.address && 
+                                   shippingInfo.city && 
+                                   shippingInfo.state && 
+                                   shippingInfo.zipCode && 
+                                   shippingInfo.country && 
+                                   !isAddressVerified;
+
   const handlePayPalSuccess = async (orderData) => {
     try {
       setIsProcessing(true);
@@ -216,6 +291,18 @@ export default function CheckoutPage({ onNavigate }) {
         alert('Please fill in all required shipping information fields.');
         setIsProcessing(false);
         return;
+      }
+
+      // Check address verification
+      if (needsAddressVerification) {
+        const verify = window.confirm(
+          'Your address has not been verified. An invalid address may result in delivery issues. ' +
+          'Would you like to verify your address before proceeding, or continue anyway?'
+        );
+        if (!verify) {
+          setIsProcessing(false);
+          return;
+        }
       }
       
       const customerInfo = {
@@ -261,6 +348,18 @@ export default function CheckoutPage({ onNavigate }) {
         alert(`Please complete all shipping information before proceeding.\n\nMissing fields: ${missingFieldsStr}`);
         setIsProcessing(false);
         return;
+      }
+
+      // Check address verification
+      if (needsAddressVerification) {
+        const verify = window.confirm(
+          'Your address has not been verified. An invalid address may result in delivery issues. ' +
+          'Would you like to verify your address before proceeding, or continue anyway?'
+        );
+        if (!verify) {
+          setIsProcessing(false);
+          return;
+        }
       }
       
       const customerInfo = {
@@ -328,7 +427,8 @@ export default function CheckoutPage({ onNavigate }) {
   }
 
   const subtotal = getTotalPrice();
-  const total = subtotal + shippingCost;
+  const tax = getTotalTax();
+  const total = subtotal + tax + shippingCost;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -394,15 +494,88 @@ export default function CheckoutPage({ onNavigate }) {
                 </div>
                 
                 <div>
-                  <Label htmlFor="address">Address *</Label>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label htmlFor="address">Address *</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleVerifyAddress}
+                      disabled={isVerifyingAddress || !shippingInfo.address || !shippingInfo.city || !shippingInfo.state || !shippingInfo.zipCode || !shippingInfo.country}
+                      className="text-xs"
+                    >
+                      {isVerifyingAddress ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          Verifying...
+                        </>
+                      ) : (
+                        <>
+                          <MapPin className="h-3 w-3 mr-1" />
+                          Verify Address
+                        </>
+                      )}
+                    </Button>
+                  </div>
                   <Textarea
-                      id="address"
-                      value={shippingInfo.address}
+                    id="address"
+                    value={shippingInfo.address}
                     onChange={(e) => handleInputChange('address', e.target.value)}
                     placeholder="Enter your full address"
-                      required
-                    />
-                  </div>
+                    required
+                    className={addressVerification && !addressVerification.isValid ? 'border-red-300' : isAddressVerified ? 'border-green-300' : ''}
+                  />
+                  
+                  {/* Address Verification Status */}
+                  {addressVerification && (
+                    <div className={`mt-2 p-3 rounded-lg text-sm ${
+                      addressVerification.isValid 
+                        ? 'bg-green-50 border border-green-200 text-green-800' 
+                        : 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+                    }`}>
+                      <div className="flex items-start gap-2">
+                        {addressVerification.isValid ? (
+                          <CheckCircle className="h-4 w-4 mt-0.5 text-green-600 flex-shrink-0" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 mt-0.5 text-yellow-600 flex-shrink-0" />
+                        )}
+                        <div className="flex-1">
+                          <p className="font-medium mb-1">{addressVerification.message}</p>
+                          {addressVerification.formattedAddress && (
+                            <p className="text-xs opacity-90 mb-2">
+                              Verified: {addressVerification.formattedAddress}
+                            </p>
+                          )}
+                          {!addressVerification.isValid && addressVerification.suggestions && addressVerification.suggestions.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-xs font-medium mb-1">Suggested address:</p>
+                              <div className="bg-white p-2 rounded border border-yellow-300">
+                                <p className="text-xs mb-2">{addressVerification.suggestions[0]}</p>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleAcceptSuggestedAddress(addressVerification.suggestions[0])}
+                                  className="text-xs h-7"
+                                >
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Use This Address
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {isAddressVerified && (
+                    <div className="mt-2 flex items-center gap-2 text-green-600 text-xs">
+                      <CheckCircle className="h-4 w-4" />
+                      <span>Address verified</span>
+                    </div>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
@@ -550,6 +723,12 @@ export default function CheckoutPage({ onNavigate }) {
                       <span>Subtotal</span>
                       <span>${subtotal.toFixed(2)}</span>
                     </div>
+                    {tax > 0 && (
+                      <div className="flex justify-between">
+                        <span>Tax</span>
+                        <span>${tax.toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span>Shipping cost</span>
                       <span>${shippingCost.toFixed(2)}</span>
@@ -588,6 +767,16 @@ export default function CheckoutPage({ onNavigate }) {
                           <strong>Please complete all shipping information before proceeding with payment.</strong>
                           <br />
                           Please fill in all required fields in the shipping form above.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    {needsAddressVerification && (
+                      <Alert className="border-yellow-200 bg-yellow-50">
+                        <AlertCircle className="h-4 w-4 text-yellow-600" />
+                        <AlertDescription className="text-yellow-800">
+                          <strong>Address not verified.</strong>
+                          <br />
+                          Please verify your address using the "Verify Address" button above to ensure accurate delivery.
                         </AlertDescription>
                       </Alert>
                     )}

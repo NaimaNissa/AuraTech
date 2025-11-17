@@ -99,6 +99,13 @@ export function CartProvider({ children }) {
     return state.items.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
+  const getTotalTax = () => {
+    return state.items.reduce((total, item) => {
+      const itemTax = (item.tax || 0) * item.quantity;
+      return total + itemTax;
+    }, 0);
+  };
+
   const getTotalItems = () => {
     return state.items.reduce((total, item) => total + item.quantity, 0);
   };
@@ -112,6 +119,7 @@ export function CartProvider({ children }) {
       
       // Create an order for each item in the cart
       for (const item of state.items) {
+        const itemTax = (item.tax || 0) * item.quantity;
         const orderData = {
           fullName: customerInfo.fullName,
           email: customerInfo.email,
@@ -120,7 +128,8 @@ export function CartProvider({ children }) {
           productName: item.name,
           quantity: item.quantity,
           price: item.price,
-          totalPrice: (item.price * item.quantity) + (customerInfo.shippingCost || 0), // Include shipping in total
+          tax: itemTax,
+          totalPrice: (item.price * item.quantity) + itemTax + (customerInfo.shippingCost || 0), // Include tax and shipping in total
           shippingCost: customerInfo.shippingCost || 0,
           description: item.description || `${item.name} - ${item.brand || 'AuraTech'}`,
           note: customerInfo.note || '',
@@ -156,6 +165,7 @@ export function CartProvider({ children }) {
     updateQuantity,
     clearCart,
     getTotalPrice,
+    getTotalTax,
     getTotalItems,
     createOrderFromCart
   };

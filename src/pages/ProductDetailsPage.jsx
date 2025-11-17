@@ -413,7 +413,8 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
       brand: product.brand,
       color: selectedColor,
       size: selectedSize,
-      quantity: quantity
+      quantity: quantity,
+      tax: product.tax || 0
     };
     
     const success = addItem(cartItem, () => {
@@ -489,7 +490,8 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
       brand: product.brand,
       color: selectedColor,
       size: selectedSize,
-      quantity: quantity
+      quantity: quantity,
+      tax: product.tax || 0
     };
     
     const success = addItem(cartItem, () => {
@@ -668,6 +670,11 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                   </span>
                 )}
               </div>
+              {product.tax !== undefined && product.tax !== null && (
+                <p className="text-sm text-gray-500">
+                  Tax: ${parseFloat(product.tax || 0).toFixed(2)} per unit
+                </p>
+              )}
               <p className="text-sm text-gray-600">
                 Price varies by color selection
               </p>

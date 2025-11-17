@@ -340,12 +340,16 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
   }, [products, categories, localSearchQuery, selectedCategory, selectedBrand, selectedPriceRange, sortBy]);
 
   const handleAddToCart = (product) => {
-    const success = addItem(product, () => {
+    const cartItem = {
+      ...product,
+      tax: product.tax || 0
+    };
+    const success = addItem(cartItem, () => {
       setShowSignInPrompt(true);
     });
     
     if (success) {
-      console.log('✅ Added to cart:', product);
+      console.log('✅ Added to cart:', cartItem);
     }
   };
 
@@ -403,6 +407,11 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
               <span className="text-xs sm:text-sm text-gray-500 line-through">${product.originalPrice}</span>
             )}
           </div>
+          {product.tax !== undefined && product.tax !== null && (
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">
+              Tax: ${parseFloat(product.tax || 0).toFixed(2)} per unit
+            </p>
+          )}
         </div>
 
         <div className="mb-3">
@@ -473,10 +482,17 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
             </div>
 
             <div className="flex justify-between items-center">
-              <div className="flex items-center space-x-2">
-                <span className="text-2xl font-bold text-blue-600">${product.price}</span>
-                {product.originalPrice > product.price && (
-                  <span className="text-lg text-gray-500 line-through">${product.originalPrice}</span>
+              <div className="flex flex-col">
+                <div className="flex items-center space-x-2">
+                  <span className="text-2xl font-bold text-blue-600">${product.price}</span>
+                  {product.originalPrice > product.price && (
+                    <span className="text-lg text-gray-500 line-through">${product.originalPrice}</span>
+                  )}
+                </div>
+                {product.tax !== undefined && product.tax !== null && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    Tax: ${parseFloat(product.tax || 0).toFixed(2)} per unit
+                  </p>
                 )}
               </div>
               

@@ -25,8 +25,8 @@ import { getShippingCostForCountry, getAllCountries } from '../lib/shippingServi
 import { getDashboardCountries, getDashboardShippingCosts } from '../lib/countryShippingService';
 
 export default function CartPage({ onNavigate }) {
-  const { items, updateQuantity, removeItem, getTotalPrice, getTotalItems, clearCart } = useCart();
-  const [selectedCountry, setSelectedCountry] = useState('United States');
+  const { items, updateQuantity, removeItem, getTotalPrice, getTotalTax, getTotalItems, clearCart } = useCart();
+  const [selectedCountry, setSelectedCountry] = useState('');
   const [shippingCost, setShippingCost] = useState(0);
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
   const [countries, setCountries] = useState([]);
@@ -231,7 +231,7 @@ export default function CartPage({ onNavigate }) {
                     <MapPin className="h-4 w-4" />
                     Shipping Country
                   </label>
-                  <Select value={selectedCountry} onValueChange={handleCountryChange}>
+                  <Select value={selectedCountry || undefined} onValueChange={handleCountryChange}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select country" />
                     </SelectTrigger>
@@ -253,11 +253,20 @@ export default function CartPage({ onNavigate }) {
                     <span>{formatPrice(getTotalPrice())}</span>
                   </div>
                   
+                  {getTotalTax() > 0 && (
+                    <div className="flex justify-between">
+                      <span>Tax</span>
+                      <span>{formatPrice(getTotalTax())}</span>
+                    </div>
+                  )}
+                  
                   <div className="flex justify-between">
-                    <span>Shipping to {selectedCountry}</span>
+                    <span>{selectedCountry ? `Shipping to ${selectedCountry}` : 'Shipping cost'}</span>
                     <span className="flex items-center gap-1">
                       {isLoadingShipping ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : !selectedCountry ? (
+                        formatPrice(0)
                       ) : shippingCost === 0 ? (
                         <span className="text-green-600">Free</span>
                       ) : (
@@ -270,7 +279,7 @@ export default function CartPage({ onNavigate }) {
                   
                   <div className="flex justify-between text-lg font-semibold">
                     <span>Total</span>
-                    <span>{formatPrice(getTotalPrice() + shippingCost)}</span>
+                    <span>{formatPrice(getTotalPrice() + getTotalTax() + shippingCost)}</span>
                   </div>
                 </div>
 

@@ -13,7 +13,7 @@ const WorkingPayPalButton = ({
   onOrderError,
   className = "" 
 }) => {
-  const { items, getTotalPrice, clearCart } = useCart();
+  const { items, getTotalPrice, getTotalTax, clearCart } = useCart();
   const { currentUser } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderStatus, setOrderStatus] = useState(null);
@@ -40,7 +40,8 @@ const WorkingPayPalButton = ({
   // Calculate order total
   const calculateOrderTotal = () => {
     const subtotal = getTotalPrice();
-    return (subtotal + shippingCost).toFixed(2);
+    const tax = getTotalTax();
+    return (subtotal + tax + shippingCost).toFixed(2);
   };
 
   // Create PayPal order
@@ -55,16 +56,23 @@ const WorkingPayPalButton = ({
 
     const orderTotal = calculateOrderTotal();
     const subtotal = getTotalPrice();
+    const tax = getTotalTax();
+
+    const breakdown = {
+      item_total: { currency_code: 'USD', value: subtotal.toFixed(2) },
+      shipping: { currency_code: 'USD', value: shippingCost.toFixed(2) }
+    };
+    
+    if (tax > 0) {
+      breakdown.tax_total = { currency_code: 'USD', value: tax.toFixed(2) };
+    }
 
     return actions.order.create({
       purchase_units: [{
         amount: {
           currency_code: 'USD',
           value: orderTotal,
-          breakdown: {
-            item_total: { currency_code: 'USD', value: subtotal.toFixed(2) },
-            shipping: { currency_code: 'USD', value: shippingCost.toFixed(2) }
-          }
+          breakdown: breakdown
         },
         items: items.map(item => ({
           name: item.name && item.name.length > 127 ? item.name.substring(0, 127) : (item.name || 'Product'),
@@ -107,6 +115,7 @@ const WorkingPayPalButton = ({
         productName: items.map(item => `${item.name} (${item.quantity}x)`).join(', '),
         quantity: items.reduce((total, item) => total + item.quantity, 0),
         price: getTotalPrice(),
+        tax: getTotalTax(),
         totalPrice: calculateOrderTotal(),
         shippingCost: shippingCost,
         description: `Order via PayPal - ${items.length} items`,
