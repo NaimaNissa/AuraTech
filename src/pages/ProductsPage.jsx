@@ -340,8 +340,17 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
   }, [products, categories, localSearchQuery, selectedCategory, selectedBrand, selectedPriceRange, sortBy]);
 
   const handleAddToCart = (product) => {
+    // Validate quantity before adding to cart
+    const maxQuantity = product?.quantity || 0;
+    if (maxQuantity <= 0) {
+      alert('This product is out of stock');
+      return;
+    }
+    
     const cartItem = {
       ...product,
+      quantity: 1, // Always add 1 when adding from product list
+      maxQuantity: maxQuantity, // Store available quantity for validation
       tax: product.tax || 0
     };
     const success = addItem(cartItem, () => {

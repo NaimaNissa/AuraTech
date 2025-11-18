@@ -100,9 +100,22 @@ export default function CartPage({ onNavigate }) {
   const handleQuantityChange = (productId, newQuantity) => {
     if (newQuantity <= 0) {
       removeItem(productId);
-    } else {
-      updateQuantity(productId, newQuantity);
+      return;
     }
+    
+    // Find the item to check maxQuantity
+    const item = items.find(item => item.id === productId);
+    if (item && item.maxQuantity !== undefined) {
+      const maxQuantity = item.maxQuantity || 0;
+      if (newQuantity > maxQuantity) {
+        alert(`Only ${maxQuantity} items available in stock`);
+        // Set to max available
+        updateQuantity(productId, maxQuantity);
+        return;
+      }
+    }
+    
+    updateQuantity(productId, newQuantity);
   };
 
   const handleCountryChange = (country) => {
@@ -181,6 +194,11 @@ export default function CartPage({ onNavigate }) {
                       <h3 className="font-semibold text-lg">{item.name}</h3>
                       <p className="text-gray-600">{item.brand}</p>
                       <p className="text-blue-600 font-semibold">{formatPrice(item.price)}</p>
+                      {item.maxQuantity !== undefined && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {item.maxQuantity} available in stock
+                        </p>
+                      )}
                       {item.tax && Array.isArray(item.tax) && item.tax.length > 0 && (() => {
                         const itemTax = getTaxForQuantity(item.tax, item.quantity);
                         return itemTax > 0 ? (
@@ -203,15 +221,21 @@ export default function CartPage({ onNavigate }) {
                       <Input
                         type="number"
                         value={item.quantity}
-                        onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value) || 0)}
+                        onChange={(e) => {
+                          const newQuantity = parseInt(e.target.value) || 0;
+                          handleQuantityChange(item.id, newQuantity);
+                        }}
                         className="w-16 text-center"
                         min="0"
+                        max={item.maxQuantity || undefined}
                       />
                       
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                        disabled={item.maxQuantity !== undefined && item.quantity >= item.maxQuantity}
+                        className={item.maxQuantity !== undefined && item.quantity >= item.maxQuantity ? 'opacity-50 cursor-not-allowed' : ''}
                       >
                         <Plus className="h-4 w-4" />
                       </Button>

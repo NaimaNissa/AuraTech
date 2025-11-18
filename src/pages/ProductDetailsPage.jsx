@@ -33,6 +33,7 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
   const [selectedSize, setSelectedSize] = useState('M');
   const [quantity, setQuantity] = useState(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [selectedKitStyle, setSelectedKitStyle] = useState(null);
   
   // Review system state
   const [reviews, setReviews] = useState([]);
@@ -83,6 +84,11 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
         // Set default color if colors are available
         if (productData.colors && productData.colors.length > 0) {
           setSelectedColor(productData.colors[0]);
+        }
+        
+        // Set default kit style if kit styles are available
+        if (productData.kitStyles && productData.kitStyles.length > 0) {
+          setSelectedKitStyle(productData.kitStyles[0].name);
         }
         
         // Load reviews and rating
@@ -361,16 +367,20 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
   const currentColorKey = selectedColor ? selectedColor.toLowerCase().replace(/\s+/g, '') : Object.keys(colorData)[0];
   const currentColorData = colorData[currentColorKey] || colorData[Object.keys(colorData)[0]];
   
-  // ALWAYS use product.price as the source of truth - it comes directly from the dashboard
-  // Ignore any prices stored in colorImages to ensure consistency
-  const currentPrice = product?.price || 0;
+  // Calculate current price - use kit style price if selected, otherwise use product price
+  let currentPrice = product?.price || 0;
+  if (selectedKitStyle && product?.kitStyles && product.kitStyles.length > 0) {
+    const kitStyle = product.kitStyles.find(ks => ks.name === selectedKitStyle);
+    if (kitStyle && kitStyle.price) {
+      currentPrice = parseFloat(kitStyle.price) || currentPrice;
+    }
+  }
   
   console.log('💰 ProductDetailsPage price calculation:', {
     productPrice: product?.price,
-    colorDataPrice: currentColorData?.price,
+    selectedKitStyle: selectedKitStyle,
     currentPrice: currentPrice,
-    selectedColor: selectedColor,
-    'Using product.price (dashboard value)': true
+    kitStyles: product?.kitStyles
   });
 
   const getCurrentImages = () => {
@@ -414,13 +424,24 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
   const handleQuantityChange = (change) => {
     setQuantity(prev => {
       const newQuantity = prev + change;
-      const maxQuantity = product?.quantity || 999;
+      const maxQuantity = product?.quantity || 0;
+      // If no quantity available, return 1 (but product should be out of stock)
+      if (maxQuantity <= 0) return 1;
       return Math.max(1, Math.min(newQuantity, maxQuantity));
     });
   };
 
   const handleAddToCart = () => {
     if (!product) return;
+    
+    // Validate quantity before adding to cart
+    const maxQuantity = product?.quantity || 0;
+    const finalQuantity = Math.min(quantity, maxQuantity);
+    
+    if (finalQuantity <= 0) {
+      alert('This product is out of stock');
+      return;
+    }
     
     const cartItem = {
       id: product.id,
@@ -430,9 +451,11 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
       brand: product.brand,
       color: selectedColor,
       size: selectedSize,
-      quantity: quantity,
+      quantity: finalQuantity,
+      maxQuantity: maxQuantity, // Store available quantity for validation
       tax: product.tax || 0,
-      freeShipping: product.freeShipping || false
+      freeShipping: product.freeShipping || false,
+      kitStyle: selectedKitStyle || null
     };
     
     const success = addItem(cartItem, () => {
@@ -500,6 +523,15 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
       return;
     }
 
+    // Validate quantity before adding to cart
+    const maxQuantity = product?.quantity || 0;
+    const finalQuantity = Math.min(quantity, maxQuantity);
+    
+    if (finalQuantity <= 0) {
+      alert('This product is out of stock');
+      return;
+    }
+
     const cartItem = {
       id: product.id,
       name: product.name,
@@ -508,9 +540,11 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
       brand: product.brand,
       color: selectedColor,
       size: selectedSize,
-      quantity: quantity,
+      quantity: finalQuantity,
+      maxQuantity: maxQuantity, // Store available quantity for validation
       tax: product.tax || 0,
-      freeShipping: product.freeShipping || false
+      freeShipping: product.freeShipping || false,
+      kitStyle: selectedKitStyle || null
     };
     
     const success = addItem(cartItem, () => {
@@ -694,10 +728,39 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                   Tax varies by quantity
                 </p>
               )}
-              <p className="text-sm text-gray-600">
-                Price varies by color selection
-              </p>
             </div>
+
+            {/* Kit Style Selection */}
+            {product.kitStyles && product.kitStyles.length > 0 && (
+              <div className="space-y-3">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Kit Style: {selectedKitStyle || product.kitStyles[0]?.name}
+                </h3>
+                <div className="flex flex-wrap gap-3">
+                  {product.kitStyles.map((kitStyle, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setSelectedKitStyle(kitStyle.name)}
+                      className={`relative px-4 py-3 border rounded-lg font-medium transition-all ${
+                        selectedKitStyle === kitStyle.name
+                          ? 'border-blue-600 bg-blue-600 text-white'
+                          : 'border-gray-200 text-gray-700 hover:border-gray-300 bg-white'
+                      }`}
+                    >
+                      <div className="flex flex-col items-center">
+                        <span>{kitStyle.name}</span>
+                        <span className={`text-sm mt-1 ${selectedKitStyle === kitStyle.name ? 'text-white' : 'text-gray-600'}`}>
+                          ${parseFloat(kitStyle.price || 0).toFixed(2)}
+                        </span>
+                      </div>
+                      {selectedKitStyle === kitStyle.name && (
+                        <Check className="absolute -top-1 -right-1 h-4 w-4 text-white bg-blue-600 rounded-full p-0.5" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Color Selection */}
             {product.colors && product.colors.length > 0 && (
@@ -782,7 +845,7 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
                 </span>
                 <button
                   onClick={() => handleQuantityChange(1)}
-                  disabled={quantity >= product.quantity}
+                  disabled={!product.quantity || quantity >= product.quantity}
                   className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="h-4 w-4" />
@@ -790,6 +853,9 @@ export default function ProductDetailsPage({ productId, onNavigate }) {
               </div>
               {!product.inStock && (
                 <p className="text-sm text-red-600">Out of stock</p>
+              )}
+              {product.quantity > 0 && quantity >= product.quantity && (
+                <p className="text-sm text-orange-600">Maximum quantity reached ({product.quantity} available)</p>
               )}
             </div>
 

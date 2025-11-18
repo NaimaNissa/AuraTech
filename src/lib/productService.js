@@ -282,6 +282,7 @@ const generateDefaultFeatures = (product) => {
     colorImages: getColorImages(firebaseProduct), // New field for color-based images
     tax: firebaseProduct.tax || [], // Tax array: [{quantity: number, taxAmount: number}]
     freeShipping: firebaseProduct.freeShipping || false, // Free shipping option
+    kitStyles: firebaseProduct.kitStyles || [], // Kit styles array: [{name: string, price: number}]
     // Store the raw Firebase data for color-based images
     rawData: firebaseProduct,
     createdAt: firebaseProduct.createdAt,

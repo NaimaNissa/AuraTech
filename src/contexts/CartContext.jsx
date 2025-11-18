@@ -88,7 +88,20 @@ export function CartProvider({ children }) {
   };
 
   const updateQuantity = (productId, quantity) => {
-    dispatch({ type: 'UPDATE_QUANTITY', payload: { id: productId, quantity } });
+    // Find the item to check maxQuantity
+    const item = state.items.find(item => item.id === productId);
+    if (item && item.maxQuantity !== undefined) {
+      // Validate against available stock
+      const maxQuantity = item.maxQuantity || 0;
+      const validQuantity = Math.max(0, Math.min(quantity, maxQuantity));
+      if (validQuantity !== quantity) {
+        console.warn(`⚠️ Quantity ${quantity} exceeds available stock (${maxQuantity}). Setting to ${validQuantity}`);
+      }
+      dispatch({ type: 'UPDATE_QUANTITY', payload: { id: productId, quantity: validQuantity } });
+    } else {
+      // If no maxQuantity stored, allow the update (backward compatibility)
+      dispatch({ type: 'UPDATE_QUANTITY', payload: { id: productId, quantity } });
+    }
   };
 
   const clearCart = () => {
