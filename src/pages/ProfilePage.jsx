@@ -22,6 +22,7 @@ import {
   Bell,
   Globe
 } from 'lucide-react';
+import DeleteAllReviews from '../components/DeleteAllReviews';
 
 export default function ProfilePage({ onNavigate }) {
   const { currentUser } = useAuth();
@@ -383,6 +384,11 @@ export default function ProfilePage({ onNavigate }) {
               </CardContent>
             </Card>
           </div>
+        </div>
+        
+        {/* Admin Section - Delete All Reviews */}
+        <div className="mt-8">
+          <DeleteAllReviews />
         </div>
       </div>
     </div>

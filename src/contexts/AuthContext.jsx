@@ -139,9 +139,11 @@ export function AuthProvider({ children }) {
     logout
   };
 
+  // Always render children - don't block on auth loading
+  // Products and other public pages should be accessible immediately
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }

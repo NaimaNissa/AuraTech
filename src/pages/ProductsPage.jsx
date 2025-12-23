@@ -59,6 +59,9 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
         setError(null);
         
         // Load products and brands from existing system
+        // This should work for both authenticated and non-authenticated users
+        console.log('🔄 Loading products (user auth status:', !!currentUser, ')');
+        console.log('📋 Products page is accessible to all users (not protected by authentication)');
         const { products: firebaseProducts, brands: firebaseBrands } = await initializeProducts();
         console.log('✅ Loaded products from Firebase:', firebaseProducts.length);
         console.log('🔍 Sample products with categories:', firebaseProducts.slice(0, 3).map(p => ({
@@ -67,6 +70,14 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
           categoryType: typeof p.category,
           rawData: p.rawData?.category || p.rawData?.Catergory
         })));
+        
+        if (firebaseProducts.length === 0) {
+          console.warn('⚠️ No products found in Firebase. This might be due to:');
+          console.warn('1. Firebase security rules blocking unauthenticated reads');
+          console.warn('2. No products in the database');
+          console.warn('3. Collection name mismatch');
+        }
+        
         setProducts(firebaseProducts);
         setBrands(firebaseBrands);
         setFilteredProducts(firebaseProducts);
@@ -143,15 +154,31 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
           setCategories(firebaseCategories);
         }
       } catch (err) {
-        setError('Failed to load products. Please try again later.');
-        console.error('Error loading products:', err);
+        console.error('❌ Error loading products:', err);
+        console.error('❌ Error code:', err.code);
+        console.error('❌ Error message:', err.message);
+        console.error('❌ Full error:', err);
+        
+        // Check if it's a permission error (likely Firebase security rules)
+        if (err.code === 'permission-denied' || err.message?.includes('permission') || err.message?.includes('Permission')) {
+          setError('Unable to load products. Please check Firebase security rules to allow public read access to the products collection.');
+        } else {
+          setError(`Failed to load products: ${err.message || 'Unknown error'}. Please try again later.`);
+        }
+        
+        // Set empty arrays to prevent UI from breaking
+        setProducts([]);
+        setBrands([]);
+        setFilteredProducts([]);
+        setCategories([]);
       } finally {
         setLoading(false);
       }
     };
 
+    // Load products regardless of authentication status
     loadProducts();
-  }, []);
+  }, []); // Remove currentUser dependency - products should load for everyone
 
   useEffect(() => {
     setLocalSearchQuery(searchQuery);
@@ -538,8 +565,9 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-green-600" />
           <p className="text-gray-600">Loading products...</p>
+          <p className="text-sm text-gray-500 mt-2">This should work for all users, including guests</p>
         </div>
       </div>
     );
@@ -547,9 +575,29 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="text-center max-w-2xl">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Unable to Load Products</h2>
           <p className="text-red-600 mb-4">{error}</p>
+          {error.includes('security rules') && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4 text-left">
+              <p className="text-sm text-yellow-800 mb-2">
+                <strong>Quick Fix:</strong> Update your Firebase Firestore security rules to allow public read access.
+              </p>
+              <p className="text-xs text-yellow-700">
+                Go to Firebase Console → Firestore Database → Rules, and add:
+              </p>
+              <pre className="text-xs bg-yellow-100 p-2 rounded mt-2 overflow-x-auto">
+{`match /products/{productId} {
+  allow read: if true;
+  allow write: if request.auth != null;
+}`}
+              </pre>
+              <p className="text-xs text-yellow-700 mt-2">
+                See <code className="bg-yellow-200 px-1 rounded">FIREBASE_SECURITY_RULES.md</code> for complete instructions.
+              </p>
+            </div>
+          )}
           <Button onClick={() => window.location.reload()}>
             Try Again
           </Button>

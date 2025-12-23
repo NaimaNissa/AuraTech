@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer } from 'react';
+import { createContext, useContext, useReducer, useEffect } from 'react';
 import { createOrder } from '../lib/orderService';
 import { useAuth } from './AuthContext';
 
@@ -62,22 +62,39 @@ const cartReducer = (state, action) => {
 };
 
 export function CartProvider({ children }) {
-  const [state, dispatch] = useReducer(cartReducer, { items: [] });
+  // Load cart from localStorage on initialization
+  const loadCartFromStorage = () => {
+    try {
+      const savedCart = localStorage.getItem('cart');
+      if (savedCart) {
+        const parsedCart = JSON.parse(savedCart);
+        return parsedCart.items || [];
+      }
+    } catch (error) {
+      console.error('❌ Error loading cart from storage:', error);
+    }
+    return [];
+  };
+
+  const [state, dispatch] = useReducer(cartReducer, { items: loadCartFromStorage() });
   const { currentUser } = useAuth();
+
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('cart', JSON.stringify({ items: state.items }));
+    } catch (error) {
+      console.error('❌ Error saving cart to storage:', error);
+    }
+  }, [state.items]);
 
   const addItem = (product, onRequireAuth = null) => {
     console.log('🛒 Adding item to cart:', product);
     console.log('🛒 Current user:', currentUser);
     console.log('🛒 Current cart items:', state.items);
     
-    if (!currentUser) {
-      console.log('🛒 No user, showing sign-in prompt');
-      // If user is not authenticated, call the callback to show sign-in prompt
-      if (onRequireAuth) {
-        onRequireAuth();
-      }
-      return false;
-    }
+    // Allow adding to cart without login - users can view products and cart
+    // Login will be required only at checkout
     dispatch({ type: 'ADD_ITEM', payload: product });
     console.log('🛒 Item added to cart successfully');
     return true;

@@ -4,6 +4,7 @@ import { CartProvider } from './contexts/CartContext';
 import { WishlistProvider } from './contexts/WishlistContext';
 import PayPalProvider from './components/PayPalProvider';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
 import ProductsPage from './pages/ProductsPage';
@@ -231,11 +232,7 @@ function App() {
       case 'product-details':
         return <ProductDetailsPage productId={productId} onNavigate={handleNavigation} />;
       case 'cart':
-        return (
-          <ProtectedRoute>
-            <CartPage onNavigate={handleNavigation} />
-          </ProtectedRoute>
-        );
+        return <CartPage onNavigate={handleNavigation} />;
         case 'checkout':
           return (
             <ProtectedRoute>
@@ -274,12 +271,15 @@ function App() {
       <CartProvider>
         <WishlistProvider>
           <PayPalProvider>
-        <div className="App">
+        <div className="App flex flex-col min-h-screen">
           <Navbar 
             onNavigate={handleNavigation} 
             currentPage={currentPage}
           />
-          {renderPage()}
+          <main className="flex-grow">
+            {renderPage()}
+          </main>
+          <Footer />
         </div>
           </PayPalProvider>
         </WishlistProvider>

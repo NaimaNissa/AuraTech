@@ -323,9 +323,16 @@ const transformProductWithCategoryMapping = async (firebaseProduct, categoryMapp
 export const getAllProducts = async () => {
   try {
     console.log('🔥 Fetching products from Firebase (products collection)...');
+    console.log('🔐 Note: This should work for both authenticated and non-authenticated users');
     
-    // Load category mapping
-    const categoryMapping = await loadCategoryMapping();
+    // Load category mapping (this can fail silently - we'll use empty mapping)
+    let categoryMapping = {};
+    try {
+      categoryMapping = await loadCategoryMapping();
+    } catch (categoryError) {
+      console.warn('⚠️ Category mapping failed, continuing without it:', categoryError.message);
+      // Continue without category mapping - products will still load
+    }
     
     // Use the same collection name as the dashboard
     const productsRef = collection(db, 'products');
@@ -333,19 +340,40 @@ export const getAllProducts = async () => {
     
     console.log(`📦 Found ${snapshot.size} products in Firebase`);
     
-    const products = [];
-    for (const doc of snapshot.docs) {
-      const productData = { id: doc.id, ...doc.data() };
-      console.log('📄 Product data:', productData);
-      const transformedProduct = await transformProductWithCategoryMapping(productData, categoryMapping);
-      products.push(transformedProduct);
+    if (snapshot.size === 0) {
+      console.warn('⚠️ No products found. This might indicate:');
+      console.warn('1. Firebase security rules blocking unauthenticated reads');
+      console.warn('2. No products in the database');
+      console.warn('3. Collection name mismatch (expected: "products")');
     }
     
-    console.log('✅ Transformed products:', products);
+    const products = [];
+    for (const doc of snapshot.docs) {
+      try {
+        const productData = { id: doc.id, ...doc.data() };
+        console.log('📄 Product data:', productData);
+        const transformedProduct = await transformProductWithCategoryMapping(productData, categoryMapping);
+        products.push(transformedProduct);
+      } catch (transformError) {
+        console.error('❌ Error transforming product:', doc.id, transformError);
+        // Continue with other products even if one fails
+      }
+    }
+    
+    console.log('✅ Transformed products:', products.length);
     return products;
   } catch (error) {
     console.error('❌ Error fetching products:', error);
     console.error('Error details:', error.code, error.message);
+    console.error('Full error:', error);
+    
+    // Check for permission errors
+    if (error.code === 'permission-denied' || error.message?.includes('permission') || error.message?.includes('Permission')) {
+      console.error('🚫 PERMISSION DENIED: Firebase security rules are blocking unauthenticated reads.');
+      console.error('📝 Solution: Update Firestore security rules to allow public read access to the "products" collection.');
+      console.error('📝 See FIREBASE_SECURITY_RULES.md for instructions.');
+    }
+    
     throw error;
   }
 };

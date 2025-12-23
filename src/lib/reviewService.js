@@ -3,6 +3,7 @@ import {
   collection, 
   addDoc, 
   getDocs, 
+  getDoc,
   query, 
   where, 
   orderBy,
@@ -416,6 +417,29 @@ export const createTestReview = async (productId, productName) => {
     return { id: docRef.id, ...testReview };
   } catch (error) {
     console.error('❌ Error creating test review:', error);
+    throw error;
+  }
+};
+
+// Delete all reviews from the Feedback collection
+export const deleteAllReviews = async () => {
+  try {
+    console.log('🗑️ Deleting all reviews...');
+    
+    const reviewsRef = collection(db, 'Feedback');
+    const snapshot = await getDocs(reviewsRef);
+    
+    const deletePromises = [];
+    snapshot.forEach((doc) => {
+      deletePromises.push(deleteDoc(doc.ref));
+    });
+    
+    await Promise.all(deletePromises);
+    
+    console.log(`✅ Successfully deleted ${snapshot.size} reviews`);
+    return { success: true, deletedCount: snapshot.size };
+  } catch (error) {
+    console.error('❌ Error deleting all reviews:', error);
     throw error;
   }
 };

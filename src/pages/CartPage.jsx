@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useCart } from '../contexts/CartContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,7 @@ import { getDashboardCountries, getDashboardShippingCosts } from '../lib/country
 
 export default function CartPage({ onNavigate }) {
   const { items, updateQuantity, removeItem, getTotalPrice, getTotalTax, getTaxForQuantity, getTotalItems, clearCart } = useCart();
+  const { currentUser } = useAuth();
   const [selectedCountry, setSelectedCountry] = useState('');
   const [shippingCost, setShippingCost] = useState(0);
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
@@ -327,15 +329,22 @@ export default function CartPage({ onNavigate }) {
 
                 <div className="space-y-3">
                   <Button 
-                    onClick={() => onNavigate('checkout', { 
-                      shippingCountry: selectedCountry, 
-                      shippingCost: shippingCost 
-                    })}
+                    onClick={() => {
+                      if (!currentUser) {
+                        // Redirect to auth page if not logged in
+                        onNavigate('auth');
+                        return;
+                      }
+                      onNavigate('checkout', { 
+                        shippingCountry: selectedCountry, 
+                        shippingCost: shippingCost 
+                      });
+                    }}
                     className="w-full" 
                     size="lg"
                   >
                     <CreditCard className="h-4 w-4 mr-2" />
-                    Proceed to Checkout
+                    {currentUser ? 'Proceed to Checkout' : 'Login to Checkout'}
                   </Button>
                   
                   <Button 
