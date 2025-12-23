@@ -585,6 +585,54 @@ input:focus, textarea:focus, select:focus {
   opacity: 0;
 }
 
+/* Banner Animations */
+@keyframes bannerFloat {
+  0%, 100% {
+    transform: translateY(0) scale(1) translateX(0);
+  }
+  25% {
+    transform: translateY(-20px) scale(1.05) translateX(10px);
+  }
+  50% {
+    transform: translateY(-15px) scale(1.03) translateX(-10px);
+  }
+  75% {
+    transform: translateY(-25px) scale(1.06) translateX(5px);
+  }
+}
+
+@keyframes bannerPulse {
+  0%, 100% {
+    opacity: 1;
+    filter: brightness(1) contrast(1);
+  }
+  50% {
+    opacity: 0.9;
+    filter: brightness(1.15) contrast(1.1);
+  }
+}
+
+@keyframes bannerDrift {
+  0%, 100% {
+    transform: translateX(0) translateY(0);
+  }
+  33% {
+    transform: translateX(15px) translateY(-10px);
+  }
+  66% {
+    transform: translateX(-15px) translateY(10px);
+  }
+}
+
+.banner-animated {
+  animation: bannerFloat 6s ease-in-out infinite, bannerPulse 4s ease-in-out infinite;
+  will-change: transform, opacity, filter;
+}
+
+.banner-parallax {
+  transition: transform 0.3s ease-out;
+}
+
 /* Scroll Animations */
 .scroll-animate {
   opacity: 0;
@@ -650,4 +698,77 @@ input:focus, textarea:focus, select:focus {
 
 .scroll-stagger-6 {
   transition-delay: 0.6s;
+}
+
+/* Modern Section Headings - Energy Logo Style */
+.modern-section-heading {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  font-weight: 600;
+  text-transform: lowercase;
+  color: #D4AF37; /* Golden color matching website */
+  letter-spacing: -0.02em;
+  position: relative;
+  display: inline-block;
+  font-size: 2.5rem;
+}
+
+@media (min-width: 768px) {
+  .modern-section-heading {
+    font-size: 3rem;
+  }
+}
+
+.modern-section-heading::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: #D4AF37;
+  border-radius: 2px;
+  transform-origin: left;
+  transform: scaleX(0);
+  opacity: 0;
+  transition: transform 0.8s ease-out 0.3s, opacity 0.8s ease-out 0.3s;
+}
+
+.modern-section-heading.animate-underline::after {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+@keyframes underlineExpand {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+/* Curved underline SVG style */
+.curved-underline {
+  position: absolute;
+  bottom: -12px;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  overflow: visible;
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 1s ease-out 0.5s, opacity 1s ease-out 0.5s;
+}
+
+.modern-section-heading.animate-underline .curved-underline {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.curved-underline svg {
+  width: 100%;
+  height: 100%;
 }

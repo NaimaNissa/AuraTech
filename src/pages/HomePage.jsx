@@ -323,8 +323,16 @@ export default function HomePage({ onNavigate }) {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           entry.target.classList.add('animate-on-scroll');
-          // Optional: unobserve after animation to improve performance
-          // observer.unobserve(entry.target);
+          // Animate the underline for modern section headings when section comes into view
+          const heading = entry.target.querySelector('.modern-section-heading');
+          if (heading && !heading.classList.contains('animate-underline')) {
+            // Use requestAnimationFrame for smoother timing
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                heading.classList.add('animate-underline');
+              }, 400); // Delay to sync with scroll animation
+            });
+          }
         }
       });
     }, observerOptions);
@@ -334,9 +342,18 @@ export default function HomePage({ onNavigate }) {
       // Observe all sections with scroll animations
       const sections = document.querySelectorAll('section.scroll-animate');
       const cards = document.querySelectorAll('.feature-card.scroll-animate, .category-card.scroll-animate');
+      // Also observe headings directly for better timing
+      const headings = document.querySelectorAll('.modern-section-heading');
       
       sections.forEach((section) => observer.observe(section));
       cards.forEach((card) => observer.observe(card));
+      headings.forEach((heading) => {
+        // Observe the parent section for each heading
+        const section = heading.closest('section');
+        if (section) {
+          observer.observe(section);
+        }
+      });
     }, 100);
 
     return () => {
@@ -344,6 +361,7 @@ export default function HomePage({ onNavigate }) {
       observer.disconnect();
     };
   }, [categories, displayReviews]); // Re-run when data loads
+
 
   // Global click handler to unlock video autoplay
   useEffect(() => {
@@ -416,13 +434,14 @@ export default function HomePage({ onNavigate }) {
       <section className="hero-banner text-white relative overflow-hidden -mt-16 pt-16" style={{minHeight: '100vh'}}>
         {/* Banner Background */}
         <div 
-          className="absolute inset-0 bg-center bg-no-repeat"
+          className="absolute inset-0 bg-center bg-no-repeat banner-animated"
           style={{
             backgroundImage: `url('/Banner.png')`,
             backgroundSize: 'contain',
             backgroundPosition: 'center',
             backgroundColor: '#2D5016', // Fallback forest green
-            backgroundBlendMode: 'normal'
+            backgroundBlendMode: 'normal',
+            willChange: 'transform'
           }}
         >
           {/* Responsive overlay for better text readability */}
@@ -524,8 +543,13 @@ export default function HomePage({ onNavigate }) {
       <section className="py-16 scroll-animate scroll-fade-up">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Shop by Category
+            <h2 className="modern-section-heading mb-8">
+              shop by category
+              <div className="curved-underline">
+              <svg viewBox="0 0 200 20" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M 0 15 Q 50 5, 100 10 T 200 8" stroke="#D4AF37" strokeWidth="3" fill="none" strokeLinecap="round"/>
+              </svg>
+              </div>
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Explore our wide range of technology products across different categories
@@ -661,8 +685,13 @@ export default function HomePage({ onNavigate }) {
       <section className="py-16 scroll-animate scroll-fade-up">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              What Our Customers Say
+            <h2 className="modern-section-heading mb-8">
+              what our customers say
+              <div className="curved-underline">
+              <svg viewBox="0 0 200 20" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M 0 15 Q 50 5, 100 10 T 200 8" stroke="#D4AF37" strokeWidth="3" fill="none" strokeLinecap="round"/>
+              </svg>
+              </div>
             </h2>
             <p className="text-lg sm:text-xl text-gray-600">
               Don't just take our word for it

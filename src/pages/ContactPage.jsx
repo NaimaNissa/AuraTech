@@ -112,7 +112,14 @@ export default function ContactPage({ onNavigate }) {
         </Button>
 
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Contact Us</h1>
+          <h1 className="modern-section-heading mb-8">
+            contact us
+            <div className="curved-underline">
+              <svg viewBox="0 0 200 20" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M 0 15 Q 50 5, 100 10 T 200 8" stroke="#D4AF37" strokeWidth="3" fill="none" strokeLinecap="round"/>
+              </svg>
+            </div>
+          </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Have a question or want to get in touch? We'd love to hear from you.
           </p>

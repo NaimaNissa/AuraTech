@@ -611,7 +611,14 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Products</h1>
+          <h1 className="modern-section-heading mb-8">
+            products
+            <div className="curved-underline">
+              <svg viewBox="0 0 200 20" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M 0 15 Q 50 5, 100 10 T 200 8" stroke="#D4AF37" strokeWidth="3" fill="none" strokeLinecap="round"/>
+              </svg>
+            </div>
+          </h1>
           
           {/* Search and Filters */}
           <div className="flex flex-col lg:flex-row gap-4 mb-6">
