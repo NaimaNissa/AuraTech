@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { 
@@ -19,12 +19,14 @@ import {
 import { getCategoriesData } from '../data/products';
 import { getLatestReviews } from '../lib/reviewService';
 import { getCategoriesWithProductCounts } from '../lib/categoryService';
+import TypewriterText from '../components/TypewriterText';
 
 export default function HomePage({ onNavigate }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
+  const videoRef = useRef(null);
 
   const features = [
     {
@@ -123,27 +125,8 @@ export default function HomePage({ onNavigate }) {
         setReviews(latestReviews);
       } catch (error) {
         console.error('Error loading reviews:', error);
-        // Fallback to default testimonials if no reviews found
-        setReviews([
-          {
-            customerName: "Sarah Johnson",
-            rating: 5,
-            comment: "Amazing quality products and fast shipping. Highly recommended!",
-            productName: "Premium Tech"
-          },
-          {
-            customerName: "Mike Chen",
-            rating: 5,
-            comment: "Great customer service and competitive prices. Will shop again!",
-            productName: "Smart Devices"
-          },
-          {
-            customerName: "Emily Davis",
-            rating: 5,
-            comment: "Love the variety of tech products. Found exactly what I needed.",
-            productName: "Tech Accessories"
-          }
-        ]);
+        // No demo reviews - just set empty array if error occurs
+        setReviews([]);
       } finally {
         setReviewsLoading(false);
       }
@@ -151,29 +134,281 @@ export default function HomePage({ onNavigate }) {
 
     loadCategories();
     loadReviews();
+
+    // Ensure video always loops and plays
+    const setupVideo = () => {
+      const videoElement = document.getElementById('about-video');
+      if (videoElement) {
+        videoElement.loop = true;
+        videoElement.muted = true; // Ensure muted for autoplay
+        
+        // Debug: Log all video events
+        videoElement.addEventListener('loadstart', () => {
+          console.log('🔄 Video load started');
+        });
+        
+        videoElement.addEventListener('loadeddata', () => {
+          console.log('✅ Video data loaded');
+          // Force play after data is loaded
+          videoElement.play().catch(err => {
+            console.error('Play error:', err);
+          });
+        });
+        
+        videoElement.addEventListener('canplay', () => {
+          // Ensure video plays when it can
+          videoElement.play().catch(() => {});
+        });
+        
+        videoElement.addEventListener('error', (e) => {
+          console.error('❌ Video error:', e);
+          console.error('Error code:', videoElement.error?.code);
+          console.error('Error message:', videoElement.error?.message);
+          console.error('Current sources:', Array.from(videoElement.querySelectorAll('source')).map(s => s.src));
+          console.error('💡 Make sure Vid12.mp4 is in the public folder!');
+        });
+        
+        videoElement.addEventListener('ended', () => {
+          videoElement.currentTime = 0;
+          videoElement.play();
+        });
+        
+        // Try to play immediately
+        videoElement.play().catch(err => {
+          console.log('Initial play failed (may need user interaction):', err);
+        });
+      }
+    };
+
+    // Setup video after a short delay to ensure DOM is ready
+    const timer = setTimeout(setupVideo, 100);
+    
+    // Also use ref to ensure video plays
+    if (videoRef.current) {
+      const video = videoRef.current;
+      video.muted = true;
+      video.loop = true;
+      video.play().catch(err => {
+        console.log('Initial ref play attempt:', err);
+      });
+    }
+    
+    return () => {
+      clearTimeout(timer);
+    };
   }, []);
 
-  // Use real reviews from database, fallback to testimonials if none available
-  const displayReviews = reviews.length > 0 ? reviews : [
-    {
-      customerName: "Sarah Johnson",
-      rating: 5,
-      comment: "Amazing quality products and fast shipping. Highly recommended!",
-      productName: "Premium Tech"
-    },
-    {
-      customerName: "Mike Chen",
-      rating: 5,
-      comment: "Great customer service and competitive prices. Will shop again!",
-      productName: "Smart Devices"
-    },
-    {
-      customerName: "Emily Davis",
-      rating: 5,
-      comment: "Love the variety of tech products. Found exactly what I needed.",
-      productName: "Tech Accessories"
+  // Additional useEffect to ensure video plays when component mounts
+  useEffect(() => {
+    const ensureVideoPlays = () => {
+      if (videoRef.current) {
+        const video = videoRef.current;
+        // Set properties
+        video.muted = true;
+        video.loop = true;
+        video.setAttribute('autoplay', 'true');
+        
+        // Check if video is ready
+        if (video.readyState >= 2) { // HAVE_CURRENT_DATA
+          console.log('🎬 Video is ready, attempting to play...');
+          const playPromise = video.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                console.log('✅ Video started playing via useEffect!');
+              })
+              .catch(error => {
+                console.error('❌ Video play promise error:', error);
+                console.error('Error name:', error.name);
+                // Try again with exponential backoff
+                let attempts = 0;
+                const tryPlay = () => {
+                  attempts++;
+                  video.muted = true;
+                  video.play()
+                    .then(() => console.log('✅ Video playing after retry!'))
+                    .catch(err => {
+                      if (attempts < 10) {
+                        setTimeout(tryPlay, 300 * attempts);
+                      } else {
+                        console.error('❌ All play attempts exhausted');
+                      }
+                    });
+                };
+                setTimeout(tryPlay, 500);
+              });
+          }
+        } else {
+          // Wait for video to be ready
+          video.addEventListener('canplay', () => {
+            video.play().catch(err => console.error('Canplay play error:', err));
+          }, { once: true });
+        }
+      }
+    };
+    
+    // Try immediately
+    ensureVideoPlays();
+    
+    // Also try after delays
+    const timer1 = setTimeout(ensureVideoPlays, 500);
+    const timer2 = setTimeout(ensureVideoPlays, 1000);
+    const timer3 = setTimeout(ensureVideoPlays, 2000);
+    
+    // Use Intersection Observer to play when section is visible
+    const aboutSection = document.getElementById('about-section');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && videoRef.current) {
+            const video = videoRef.current;
+            video.muted = true;
+            video.loop = true;
+            video.currentTime = 0; // Reset to start
+            const playPromise = video.play();
+            if (playPromise !== undefined) {
+              playPromise
+                .then(() => {
+                  // Video is playing - no need to log
+                })
+                .catch(err => {
+                  console.error('❌ IntersectionObserver play error:', err);
+                  console.error('Error name:', err.name);
+                });
+            }
+          }
+        });
+      },
+      { threshold: 0.1, rootMargin: '0px' }
+    );
+    
+    if (aboutSection) {
+      observer.observe(aboutSection);
     }
-  ];
+    
+    // Periodic check to ensure video is playing - silent check
+    const playCheckInterval = setInterval(() => {
+      if (videoRef.current) {
+        const video = videoRef.current;
+        if (video.paused && video.readyState >= 2) {
+          video.muted = true;
+          video.loop = true;
+          video.play().catch(() => {}); // Silent fail
+        }
+      }
+    }, 3000); // Check every 3 seconds (less frequent)
+    
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+      clearInterval(playCheckInterval);
+      if (videoRef.current) {
+        observer.unobserve(videoRef.current);
+      }
+    };
+  }, []);
+
+  // Use only real reviews from database - no demo reviews
+  const displayReviews = reviews;
+
+  // Scroll animation setup
+  useEffect(() => {
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('animate-on-scroll');
+          // Optional: unobserve after animation to improve performance
+          // observer.unobserve(entry.target);
+        }
+      });
+    }, observerOptions);
+
+    // Small delay to ensure DOM is ready
+    const timeoutId = setTimeout(() => {
+      // Observe all sections with scroll animations
+      const sections = document.querySelectorAll('section.scroll-animate');
+      const cards = document.querySelectorAll('.feature-card.scroll-animate, .category-card.scroll-animate');
+      
+      sections.forEach((section) => observer.observe(section));
+      cards.forEach((card) => observer.observe(card));
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      observer.disconnect();
+    };
+  }, [categories, displayReviews]); // Re-run when data loads
+
+  // Global click handler to unlock video autoplay
+  useEffect(() => {
+    const handleUserInteraction = () => {
+      if (videoRef.current && videoRef.current.paused) {
+        videoRef.current.muted = true;
+        videoRef.current.play().catch(err => {
+          console.log('User interaction play attempt:', err);
+        });
+      }
+    };
+
+    // Add event listeners for user interaction
+    window.addEventListener('click', handleUserInteraction, { once: true });
+    window.addEventListener('touchstart', handleUserInteraction, { once: true });
+    window.addEventListener('keydown', handleUserInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener('click', handleUserInteraction);
+      window.removeEventListener('touchstart', handleUserInteraction);
+      window.removeEventListener('keydown', handleUserInteraction);
+    };
+  }, []);
+
+  // Force video to play on mount - most aggressive approach
+  useEffect(() => {
+    const forcePlayVideo = () => {
+      const video = videoRef.current;
+      if (video) {
+        // Set all required attributes
+        video.setAttribute('muted', 'true');
+        video.setAttribute('autoplay', 'true');
+        video.setAttribute('loop', 'true');
+        video.setAttribute('playsinline', 'true');
+        video.muted = true;
+        video.loop = true;
+        
+        // Try to play immediately
+        const attemptPlay = () => {
+          if (video.readyState >= 1) { // HAVE_METADATA or better
+            video.play()
+              .then(() => {
+                console.log('✅✅✅ VIDEO IS NOW PLAYING!');
+              })
+              .catch(err => {
+                console.error('❌ Play failed:', err);
+                // Retry after short delay
+                setTimeout(attemptPlay, 100);
+              });
+          } else {
+            // Wait for video to load
+            video.addEventListener('loadedmetadata', attemptPlay, { once: true });
+          }
+        };
+        
+        attemptPlay();
+      }
+    };
+
+    // Try multiple times with delays
+    forcePlayVideo();
+    setTimeout(forcePlayVideo, 100);
+    setTimeout(forcePlayVideo, 500);
+    setTimeout(forcePlayVideo, 1000);
+  }, []);
 
   return (
     <div className="min-h-screen">
@@ -200,14 +435,35 @@ export default function HomePage({ onNavigate }) {
             {/* Mobile: Center aligned, Desktop: Right aligned */}
             <div className="flex justify-center md:justify-end">
               <div className="text-center md:text-right w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl">
-                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-2 sm:mb-3 md:mb-4 animate-fade-in leading-tight">
-                  <span className="text-white" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.8)'}}>AuraTech</span>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-2 sm:mb-3 md:mb-4 leading-tight">
+                  <span 
+                    className="text-white inline-block hero-title" 
+                    style={{
+                      textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                      animation: 'slideInUp 0.8s ease-out 0.2s forwards, glow 3s ease-in-out 1s infinite, float 4s ease-in-out 2s infinite',
+                      opacity: 0
+                    }}
+                  >
+                    AuraTech
+                  </span>
                 </h1>
-                <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold mb-4 sm:mb-6 md:mb-8 animate-fade-in leading-tight">
-                  <span className="text-white" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.8)'}}>Expand Your Horizon</span>
+                <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl font-bold mb-4 sm:mb-6 md:mb-8 leading-tight">
+                  <span 
+                    className="text-white inline-block hero-subtitle" 
+                    style={{
+                      textShadow: '2px 2px 4px rgba(0,0,0,0.8)',
+                      animation: 'slideInUp 0.8s ease-out 0.6s forwards, float 4s ease-in-out 2.5s infinite',
+                      opacity: 0
+                    }}
+                  >
+                    Expand Your Horizon
+                  </span>
                 </h2>
-                <p className="text-sm sm:text-base md:text-lg lg:text-xl mb-4 sm:mb-6 md:mb-8 leading-relaxed px-2 sm:px-0" style={{color: 'rgba(255, 255, 255, 0.95)', textShadow: '1px 1px 3px rgba(0,0,0,0.8)'}}>
-                  Discover a refined world of curated tech. Find and define your own aura.
+                <p className="text-sm sm:text-base md:text-lg lg:text-xl mb-4 sm:mb-6 md:mb-8 leading-relaxed px-2 sm:px-0" style={{color: 'rgba(255, 255, 255, 0.95)', textShadow: '1px 1px 3px rgba(0,0,0,0.8)', minHeight: '3em'}}>
+                  <TypewriterText 
+                    text="Discover a refined world of curated tech. Find and define your own aura."
+                    speed={50}
+                  />
                 </p>
                 <Button 
                   onClick={() => onNavigate('products')}
@@ -227,16 +483,35 @@ export default function HomePage({ onNavigate }) {
       </section>
 
       {/* Features Section */}
-      <section className="py-16 bg-white">
+      <section className="py-16 bg-white scroll-animate scroll-fade-up">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <Card key={index} className="text-center p-6 hover:shadow-lg transition-shadow">
+              <Card 
+                key={index} 
+                className={`text-center p-6 hover:shadow-xl transition-all duration-300 feature-card scroll-animate scroll-scale scroll-stagger-${index + 1}`}
+                style={{
+                  transform: 'translateY(0)',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-10px) scale(1.02)';
+                  e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0) scale(1)';
+                  e.currentTarget.style.boxShadow = '';
+                }}
+              >
                 <CardContent className="pt-6">
-                  <div className="flex justify-center mb-4">
+                  <div className="flex justify-center mb-4 feature-icon-wrapper">
+                    <div className="feature-icon">
                     {feature.icon}
+                    </div>
                   </div>
-                  <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                  <h3 className="text-xl font-semibold mb-2 transition-colors duration-300 hover:text-yellow-600">
+                    {feature.title}
+                  </h3>
                   <p className="text-gray-600">{feature.description}</p>
                 </CardContent>
               </Card>
@@ -246,7 +521,7 @@ export default function HomePage({ onNavigate }) {
       </section>
 
       {/* Categories Section */}
-      <section className="py-16">
+      <section className="py-16 scroll-animate scroll-fade-up">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -275,7 +550,7 @@ export default function HomePage({ onNavigate }) {
               categories.map((category, index) => (
                 <Card 
                   key={index} 
-                  className="p-3 sm:p-4 md:p-6 text-center hover:shadow-lg transition-all duration-300 cursor-pointer group hover:scale-105"
+                  className={`p-3 sm:p-4 md:p-6 text-center hover:shadow-lg transition-all duration-300 cursor-pointer group hover:scale-105 category-card scroll-animate scroll-scale scroll-stagger-${(index % 6) + 1}`}
                   onClick={() => onNavigate('products', category.id)}
                 >
                   <CardContent className="pt-3 sm:pt-4 md:pt-6">
@@ -295,116 +570,95 @@ export default function HomePage({ onNavigate }) {
       </section>
 
       {/* About Section */}
-      <section id="about-section" className="py-16" style={{background: 'linear-gradient(180deg, #FFFFFF 0%, #FEFDF8 100%)'}}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-                About <span style={{color: '#fdfceeff'}}>Aura</span><span style={{color: '#fcfbf9ff'}}>Tech</span>
-              </h2>
-              <p className="text-lg text-gray-600 mb-6">
-                AuraTech is your premier destination for cutting-edge technology products. 
-                We curate the finest tech innovations with an aura of excellence, 
-                bringing you premium quality at competitive prices.
-              </p>
-              <p className="text-lg text-gray-600 mb-6">
-                Our mission is to make advanced technology accessible to everyone, 
-                everywhere. From smartphones to smart homes, we've got you covered.
-              </p>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 rounded-full" style={{background: 'linear-gradient(45deg, #E6D200 0%, #D4AF37 100)'}}></div>
-                  <span className="text-gray-700">Global shipping to 150+ countries</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 rounded-full" style={{background: 'linear-gradient(45deg, #E6D200 0%, #D4AF37 100)'}}></div>
-                  <span className="text-gray-700">24/7 customer support</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 rounded-full" style={{background: 'linear-gradient(45deg, #E6D200 0%, #D4AF37 100)'}}></div>
-                  <span className="text-gray-700">Quality guarantee on all products</span>
-                </div>
-              </div>
-            </div>
-            <div className="relative">
-              {/* Laptop Image with Website Preview */}
-              <div className="relative rounded-xl overflow-hidden shadow-2xl transform hover:scale-105 transition-transform duration-300">
-                {/* Laptop Frame */}
-                <div className="relative bg-gray-800 rounded-t-lg p-4">
-                  <div className="bg-gray-700 rounded-sm h-2 w-16 mx-auto mb-2"></div>
-                  <div className="bg-gray-700 rounded-sm h-1 w-8 mx-auto"></div>
-                </div>
-                
-                {/* Laptop Screen */}
-                <div className="relative bg-white rounded-b-lg overflow-hidden" style={{aspectRatio: '16/10'}}>
-                  {/* Website Preview */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-100">
-                    {/* Browser Header */}
-                    <div className="bg-gray-200 h-8 flex items-center px-3 space-x-2">
-                      <div className="w-3 h-3 bg-red-400 rounded-full"></div>
-                      <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-                      <div className="w-3 h-3 bg-green-400 rounded-full"></div>
-                      <div className="bg-white rounded px-2 py-1 text-xs text-gray-600 ml-4 flex-1 text-center">
-                        auratech.com
-                      </div>
-                    </div>
-                    
-                    {/* Website Content Preview */}
-                    <div className="p-4 space-y-3">
-                      {/* Header */}
-                      <div className="h-4 bg-gradient-to-r from-yellow-400 to-yellow-500 rounded"></div>
-                      
-                      {/* Navigation */}
-                      <div className="flex space-x-2">
-                        <div className="h-2 bg-gray-300 rounded w-16"></div>
-                        <div className="h-2 bg-gray-300 rounded w-20"></div>
-                        <div className="h-2 bg-gray-300 rounded w-14"></div>
-                        <div className="h-2 bg-gray-300 rounded w-18"></div>
-                      </div>
-                      
-                      {/* Hero Section */}
-                      <div className="space-y-2">
-                        <div className="h-3 bg-gray-400 rounded w-3/4"></div>
-                        <div className="h-3 bg-gray-400 rounded w-1/2"></div>
-                        <div className="h-2 bg-gray-300 rounded w-2/3"></div>
-                      </div>
-                      
-                      {/* Product Cards */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-white rounded p-2 shadow-sm">
-                          <div className="h-8 bg-gray-200 rounded mb-1"></div>
-                          <div className="h-2 bg-gray-300 rounded w-3/4"></div>
-                        </div>
-                        <div className="bg-white rounded p-2 shadow-sm">
-                          <div className="h-8 bg-gray-200 rounded mb-1"></div>
-                          <div className="h-2 bg-gray-300 rounded w-3/4"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Glare Effect */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/20 to-transparent pointer-events-none"></div>
-                </div>
-                
-                {/* Laptop Base */}
-                <div className="bg-gray-800 h-2 rounded-b-lg"></div>
-              </div>
-              
-              {/* Floating Elements */}
-              <div className="absolute -top-4 -right-4 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg animate-bounce">
-                <span className="text-white text-sm">✨</span>
-              </div>
-              <div className="absolute -bottom-4 -left-4 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
-                <span className="text-white text-xs">💻</span>
-              </div>
-            </div>
+      <section 
+        id="about-section" 
+        className="py-16 relative overflow-hidden scroll-animate scroll-fade-up" 
+        style={{ minHeight: '600px' }}
+        onClick={(e) => {
+          // Unlock video play on user interaction
+          if (videoRef.current && videoRef.current.paused) {
+            videoRef.current.play().catch(err => console.error('Click play error:', err));
+          }
+        }}
+      >
+        {/* Background Video - Vid12 as banner */}
+        <video
+          ref={videoRef}
+          id="about-video"
+          src="/Vid12.mp4"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ 
+            width: '100%', 
+            height: '100%', 
+            objectFit: 'cover',
+            zIndex: 1,
+            pointerEvents: 'none',
+            backgroundColor: 'transparent',
+            opacity: 1,
+            visibility: 'visible',
+            display: 'block',
+            transform: 'scaleX(-1)' // Mirror effect - horizontal flip
+          }}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          onLoadedData={(e) => {
+            const video = e.target;
+            video.muted = true;
+            video.loop = true;
+            video.style.opacity = '1';
+            video.style.visibility = 'visible';
+            console.log('✅ Video loaded - dimensions:', video.videoWidth, 'x', video.videoHeight);
+            video.play().catch(() => {});
+          }}
+          onCanPlay={(e) => {
+            const video = e.target;
+            video.style.opacity = '1';
+            video.style.visibility = 'visible';
+            console.log('✅ Video can play - making visible');
+          }}
+          onEnded={(e) => {
+            e.target.currentTime = 0;
+            e.target.play();
+          }}
+          onError={(e) => {
+            console.error('❌ Video error:', e.target.error);
+            // Hide video if it fails to load
+            e.target.style.display = 'none';
+          }}
+        />
+        
+        {/* Fallback gradient background if video fails to load - BEHIND video */}
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" style={{ zIndex: 0 }}></div>
+        
+        {/* Lighter overlay for better text readability - video should be visible through this */}
+        <div className="absolute inset-0 bg-black/30" style={{ zIndex: 2 }}></div>
+        
+        {/* Content - Centered */}
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
+          <div className="text-center">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 about-section-title" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.8)'}}>
+              About <span style={{color: '#fdfceeff'}}>Aura</span><span style={{color: '#fcfbf9ff'}}>Tech</span>
+            </h2>
+            <p className="text-lg md:text-xl text-white mb-6 about-section-text mx-auto max-w-3xl mt-8 md:mt-10" style={{textShadow: '1px 1px 3px rgba(0,0,0,0.8)'}}>
+              A collection inspired by the adorable Instax mini. Get ready for dreamy aesthetics, pretty photography, and capturing all the sweet moments in life. Think pastel vibes, cozy memories, and instant photo fun.
+            </p>
           </div>
+        </div>
+        
+        {/* Floating Elements */}
+        <div className="absolute -top-4 -right-4 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg animate-bounce z-30">
+          <span className="text-white text-sm">✨</span>
+        </div>
+        <div className="absolute -bottom-4 -left-4 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg animate-pulse z-30">
+          <span className="text-white text-xs">💻</span>
         </div>
       </section>
 
       {/* Testimonials Section */}
-      <section className="py-16">
+      <section className="py-16 scroll-animate scroll-fade-up">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -430,7 +684,7 @@ export default function HomePage({ onNavigate }) {
                   </CardContent>
                 </Card>
               ))
-            ) : (
+            ) : displayReviews.length > 0 ? (
               displayReviews.map((review, index) => (
               <Card key={index} className="p-4 sm:p-6">
                 <CardContent className="pt-4 sm:pt-6">
@@ -451,6 +705,10 @@ export default function HomePage({ onNavigate }) {
                 </CardContent>
               </Card>
               ))
+            ) : (
+              <div className="col-span-full text-center py-12">
+                <p className="text-gray-600 text-lg">No reviews yet. Be the first to leave a review!</p>
+              </div>
             )}
           </div>
         </div>

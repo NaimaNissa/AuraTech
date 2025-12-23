@@ -8,11 +8,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { sendContactEmail } from '@/lib/contactEmailService';
 import { 
   Mail, 
-  Phone, 
   Send, 
   CheckCircle,
   ArrowLeft,
-  Globe
+  Instagram
 } from 'lucide-react';
 
 export default function ContactPage({ onNavigate }) {
@@ -135,23 +134,39 @@ export default function ContactPage({ onNavigate }) {
                   </div>
                 </div>
 
-                <div className="flex items-start space-x-4">
-                  <Phone className="h-6 w-6 text-blue-600 mt-1" />
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Phone</h3>
-                    <p className="text-gray-600">Coming Soon</p>
-                  </div>
+                <div className="flex items-center space-x-4">
+                  <a
+                    href="https://www.instagram.com/auratech_5/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-3 text-gray-700 hover:text-pink-600 transition-colors"
+                  >
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 via-pink-600 to-orange-500 hover:from-purple-700 hover:via-pink-700 hover:to-orange-600 transition-all duration-300 transform hover:scale-110 shadow-lg hover:shadow-xl">
+                      <Instagram className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="font-semibold">Instagram</span>
+                  </a>
                 </div>
 
-                <div className="flex items-start space-x-4">
-                  <Globe className="h-6 w-6 text-blue-600 mt-1" />
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Service Area</h3>
-                    <p className="text-gray-600">
-                      Worldwide Shipping Available<br />
-                      Free shipping on orders over $50
-                    </p>
-                  </div>
+                <div className="flex items-center space-x-4">
+                  <a
+                    href="https://au.pinterest.com/auratechs30/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center space-x-3 text-gray-700 hover:text-red-600 transition-colors"
+                  >
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-red-600 hover:bg-red-700 transition-all duration-300 transform hover:scale-110 shadow-lg hover:shadow-xl overflow-hidden">
+                      <img 
+                        src="/pinterest.webp" 
+                        alt="Pinterest" 
+                        className="h-10 w-10 object-contain"
+                        style={{
+                          transform: 'scale(1.8)'
+                        }}
+                      />
+                    </div>
+                    <span className="font-semibold">Pinterest</span>
+                  </a>
                 </div>
               </CardContent>
             </Card>
