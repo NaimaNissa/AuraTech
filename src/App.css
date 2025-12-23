@@ -481,8 +481,10 @@ input:focus, textarea:focus, select:focus {
 }
 
 .feature-card {
-  animation: fadeInUp 0.6s ease-out forwards;
+  animation: featureCardEntrance 0.6s ease-out forwards;
   opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.3s ease;
 }
 
 .feature-card:nth-child(1) {
@@ -490,26 +492,66 @@ input:focus, textarea:focus, select:focus {
 }
 
 .feature-card:nth-child(2) {
-  animation-delay: 0.3s;
+  animation-delay: 0.2s;
 }
 
 .feature-card:nth-child(3) {
-  animation-delay: 0.5s;
+  animation-delay: 0.3s;
+}
+
+.feature-card.animate-on-scroll {
+  animation: featureCardEntrance 0.6s ease-out forwards;
+}
+
+.feature-icon-wrapper {
+  position: relative;
+  display: inline-block;
+  padding: 0.75rem;
+  border-radius: 50%;
+  background: rgba(212, 175, 55, 0.08);
+  transition: all 0.3s ease;
 }
 
 .feature-icon {
   transition: all 0.3s ease;
-  animation: iconBounce 2s ease-in-out infinite;
+  animation: iconFloat 4s ease-in-out infinite;
   display: inline-block;
 }
 
+.feature-card:hover .feature-icon-wrapper {
+  transform: scale(1.05);
+  background: rgba(212, 175, 55, 0.15);
+}
+
 .feature-card:hover .feature-icon {
-  transform: translateY(-10px) scale(1.15);
+  transform: translateY(-5px) scale(1.1);
   animation: none;
 }
 
 .feature-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
   border-color: rgba(212, 175, 55, 0.3);
+}
+
+@keyframes featureCardEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes iconFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
 }
 
 /* Category Section Animations */
@@ -730,12 +772,10 @@ input:focus, textarea:focus, select:focus {
   transform-origin: left;
   transform: scaleX(0);
   opacity: 0;
-  transition: transform 0.8s ease-out 0.3s, opacity 0.8s ease-out 0.3s;
 }
 
 .modern-section-heading.animate-underline::after {
-  transform: scaleX(1);
-  opacity: 1;
+  animation: underlineExpand 0.8s ease-out 0.3s forwards;
 }
 
 @keyframes underlineExpand {
@@ -760,12 +800,10 @@ input:focus, textarea:focus, select:focus {
   opacity: 0;
   transform: scaleX(0);
   transform-origin: left;
-  transition: transform 1s ease-out 0.5s, opacity 1s ease-out 0.5s;
 }
 
 .modern-section-heading.animate-underline .curved-underline {
-  opacity: 1;
-  transform: scaleX(1);
+  animation: underlineExpand 1s ease-out 0.5s forwards;
 }
 
 .curved-underline svg {

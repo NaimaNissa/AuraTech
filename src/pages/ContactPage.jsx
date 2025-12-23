@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,6 +24,27 @@ export default function ContactPage({ onNavigate }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState('');
+
+  // Trigger underline animation on page load
+  useEffect(() => {
+    const triggerAnimation = () => {
+      const heading = document.querySelector('.modern-section-heading.animate-underline');
+      if (heading) {
+        // Force reflow to trigger animation
+        void heading.offsetWidth;
+        heading.classList.remove('animate-underline');
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            heading.classList.add('animate-underline');
+          }, 50);
+        });
+      }
+    };
+    
+    // Try immediately and after a short delay
+    triggerAnimation();
+    setTimeout(triggerAnimation, 100);
+  }, []);
 
   const handleChange = (e) => {
     setFormData({
@@ -112,7 +133,7 @@ export default function ContactPage({ onNavigate }) {
         </Button>
 
         <div className="text-center mb-12">
-          <h1 className="modern-section-heading mb-8">
+          <h1 className="modern-section-heading animate-underline mb-8">
             contact us
             <div className="curved-underline">
               <svg viewBox="0 0 200 20" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">

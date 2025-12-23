@@ -394,9 +394,56 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
     onNavigate('product-details', product.id);
   };
 
-  const ProductCard = ({ product }) => (
+  // Trigger underline animation on page load
+  useEffect(() => {
+    const triggerAnimation = () => {
+      const heading = document.querySelector('.modern-section-heading.animate-underline');
+      if (heading) {
+        // Force reflow to trigger animation
+        void heading.offsetWidth;
+        heading.classList.remove('animate-underline');
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            heading.classList.add('animate-underline');
+          }, 50);
+        });
+      }
+    };
+    
+    // Try immediately and after a short delay
+    triggerAnimation();
+    setTimeout(triggerAnimation, 100);
+  }, []);
+
+  // Scroll animation setup
+  useEffect(() => {
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('animate-on-scroll');
+        }
+      });
+    }, observerOptions);
+
+    const timeoutId = setTimeout(() => {
+      const productCards = document.querySelectorAll('.product-card-scroll');
+      productCards.forEach((card) => observer.observe(card));
+    }, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      observer.disconnect();
+    };
+  }, [filteredProducts]); // Re-run when products change
+
+  const ProductCard = ({ product, index }) => (
     <Card 
-      className="group hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer"
+      className={`group hover:shadow-lg transition-all duration-300 overflow-hidden cursor-pointer product-card-scroll scroll-animate scroll-scale scroll-stagger-${(index % 6) + 1}`}
       onClick={() => {
         if (onNavigate) {
           // Navigate to product details with product ID
@@ -475,8 +522,8 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
     </Card>
   );
 
-  const ProductListItem = ({ product }) => (
-    <Card className="mb-4">
+  const ProductListItem = ({ product, index }) => (
+    <Card className={`mb-4 product-card-scroll scroll-animate scroll-fade-up scroll-stagger-${(index % 6) + 1}`}>
       <CardContent className="p-4">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="relative w-full md:w-48 h-48">
@@ -611,7 +658,7 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="modern-section-heading mb-8">
+          <h1 className="modern-section-heading animate-underline mb-8">
             products
             <div className="curved-underline">
               <svg viewBox="0 0 200 20" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
@@ -771,11 +818,11 @@ export default function ProductsPage({ searchQuery = '', selectedCategory: initi
               ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
               : 'space-y-4'
           }>
-            {filteredProducts.map((product) => 
+            {filteredProducts.map((product, index) => 
               viewMode === 'grid' ? (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard key={product.id} product={product} index={index} />
               ) : (
-                <ProductListItem key={product.id} product={product} />
+                <ProductListItem key={product.id} product={product} index={index} />
               )
             )}
           </div>

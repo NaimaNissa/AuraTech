@@ -315,8 +315,8 @@ export default function HomePage({ onNavigate }) {
   // Scroll animation setup
   useEffect(() => {
     const observerOptions = {
-      threshold: 0.1,
-      rootMargin: '0px 0px -50px 0px'
+      threshold: 0.15,
+      rootMargin: '0px 0px -100px 0px'
     };
 
     const observer = new IntersectionObserver((entries) => {
@@ -330,7 +330,7 @@ export default function HomePage({ onNavigate }) {
             requestAnimationFrame(() => {
               setTimeout(() => {
                 heading.classList.add('animate-underline');
-              }, 400); // Delay to sync with scroll animation
+              }, 300); // Delay to sync with scroll animation
             });
           }
         }
@@ -342,19 +342,26 @@ export default function HomePage({ onNavigate }) {
       // Observe all sections with scroll animations
       const sections = document.querySelectorAll('section.scroll-animate');
       const cards = document.querySelectorAll('.feature-card.scroll-animate, .category-card.scroll-animate');
-      // Also observe headings directly for better timing
-      const headings = document.querySelectorAll('.modern-section-heading');
       
-      sections.forEach((section) => observer.observe(section));
-      cards.forEach((card) => observer.observe(card));
-      headings.forEach((heading) => {
-        // Observe the parent section for each heading
-        const section = heading.closest('section');
-        if (section) {
-          observer.observe(section);
+      sections.forEach((section) => {
+        observer.observe(section);
+        // Check if section is already visible (for above-the-fold content)
+        const rect = section.getBoundingClientRect();
+        const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+        if (isVisible) {
+          section.classList.add('animate-on-scroll');
+          const heading = section.querySelector('.modern-section-heading');
+          if (heading && !heading.classList.contains('animate-underline')) {
+            requestAnimationFrame(() => {
+              setTimeout(() => {
+                heading.classList.add('animate-underline');
+              }, 300);
+            });
+          }
         }
       });
-    }, 100);
+      cards.forEach((card) => observer.observe(card));
+    }, 200); // Increased delay to ensure DOM is fully ready
 
     return () => {
       clearTimeout(timeoutId);
@@ -508,30 +515,18 @@ export default function HomePage({ onNavigate }) {
             {features.map((feature, index) => (
               <Card 
                 key={index} 
-                className={`text-center p-6 hover:shadow-xl transition-all duration-300 feature-card scroll-animate scroll-scale scroll-stagger-${index + 1}`}
-                style={{
-                  transform: 'translateY(0)',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-10px) scale(1.02)';
-                  e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.15)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                  e.currentTarget.style.boxShadow = '';
-                }}
+                className={`text-center p-6 feature-card scroll-animate scroll-scale scroll-stagger-${index + 1}`}
               >
                 <CardContent className="pt-6">
-                  <div className="flex justify-center mb-4 feature-icon-wrapper">
+                  <div className="flex justify-center mb-6 feature-icon-wrapper">
                     <div className="feature-icon">
                     {feature.icon}
                     </div>
                   </div>
-                  <h3 className="text-xl font-semibold mb-2 transition-colors duration-300 hover:text-yellow-600">
+                  <h3 className="text-xl font-semibold mb-3 transition-all duration-300 hover:text-[#D4AF37] transform hover:scale-105 inline-block">
                     {feature.title}
                   </h3>
-                  <p className="text-gray-600">{feature.description}</p>
+                  <p className="text-gray-600 transition-colors duration-300">{feature.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -664,20 +659,20 @@ export default function HomePage({ onNavigate }) {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20">
           <div className="text-center">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-6 about-section-title" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.8)'}}>
-              About <span style={{color: '#fdfceeff'}}>Aura</span><span style={{color: '#fcfbf9ff'}}>Tech</span>
-            </h2>
+                About <span style={{color: '#fdfceeff'}}>Aura</span><span style={{color: '#fcfbf9ff'}}>Tech</span>
+              </h2>
             <p className="text-lg md:text-xl text-white mb-6 about-section-text mx-auto max-w-3xl mt-8 md:mt-10" style={{textShadow: '1px 1px 3px rgba(0,0,0,0.8)'}}>
               A collection inspired by the adorable Instax mini. Get ready for dreamy aesthetics, pretty photography, and capturing all the sweet moments in life. Think pastel vibes, cozy memories, and instant photo fun.
             </p>
-          </div>
-        </div>
-        
-        {/* Floating Elements */}
+                    </div>
+              </div>
+              
+              {/* Floating Elements */}
         <div className="absolute -top-4 -right-4 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-lg animate-bounce z-30">
-          <span className="text-white text-sm">✨</span>
-        </div>
+                <span className="text-white text-sm">✨</span>
+              </div>
         <div className="absolute -bottom-4 -left-4 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-lg animate-pulse z-30">
-          <span className="text-white text-xs">💻</span>
+                <span className="text-white text-xs">💻</span>
         </div>
       </section>
 
